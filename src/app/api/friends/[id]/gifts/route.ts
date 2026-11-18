@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getFriendById, addGift, addMultipleGifts } from '@/lib/storage';
+import { getFriendById, addGift, addMultipleGifts, createFriend } from '@/lib/storage';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -8,7 +8,30 @@ interface RouteContext {
 export async function POST(request: Request, context: RouteContext) {
   try {
     const { id } = await context.params;
-    const friend = await getFriendById(id);
+    const body = await request.json();
+    const { pin, gifts, title, link, imageUrl, priceEstimate, priority, notes, friendProfile } = body;
+
+    let friend = await getFriendById(id);
+
+    // Si la lambda serverless de Vercel no tiene la carpeta en su contenedor local,
+    // la auto-restaura al vuelo con el perfil del usuario para evitar 404.
+    if (!friend && (friendProfile || pin)) {
+      try {
+        const created = await createFriend({
+          id,
+          name: friendProfile?.name || id,
+          avatar: friendProfile?.avatar || '🎅',
+          pin: (friendProfile?.pin || pin).toString().trim(),
+          bio: friendProfile?.bio || '',
+          dislikes: friendProfile?.dislikes || '',
+          shirtSize: friendProfile?.shirtSize || '',
+          shoeSize: friendProfile?.shoeSize || ''
+        });
+        friend = { ...created, gifts: [] };
+      } catch {
+        friend = await getFriendById(id);
+      }
+    }
 
     if (!friend) {
       return NextResponse.json(
@@ -16,9 +39,6 @@ export async function POST(request: Request, context: RouteContext) {
         { status: 404 }
       );
     }
-
-    const body = await request.json();
-    const { pin, gifts, title, link, imageUrl, priceEstimate, priority, notes } = body;
 
     // Validar PIN
     if (!pin || pin.toString().trim() !== friend.pin.trim()) {
@@ -31,7 +51,7 @@ export async function POST(request: Request, context: RouteContext) {
     // Caso 1: Subida masiva de múltiples regalos / fotos
     if (Array.isArray(gifts) && gifts.length > 0) {
       const formattedItems = gifts.map((item: any, idx: number) => ({
-        title: item.title?.trim() || `Regalo / Idea #${idx + 1}`,
+        title: item.title?.trim() || `Regalo #${idx + 1}`,
         link: item.link?.trim() || '',
         imageUrl: item.imageUrl || '',
         priceEstimate: item.priceEstimate?.trim() || '',

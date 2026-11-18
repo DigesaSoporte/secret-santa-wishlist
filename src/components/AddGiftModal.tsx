@@ -117,12 +117,23 @@ export default function AddGiftModal({
         notes: ''
       }));
 
+      let friendProfile: any = null;
+      if (typeof window !== 'undefined') {
+        const cached = localStorage.getItem(`santa_friend_${friendId}`);
+        if (cached) {
+          try {
+            friendProfile = JSON.parse(cached);
+          } catch {}
+        }
+      }
+
       const res = await fetch(`/api/friends/${friendId}/gifts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           pin,
-          gifts: giftsPayload
+          gifts: giftsPayload,
+          friendProfile
         })
       });
 
@@ -166,6 +177,16 @@ export default function AddGiftModal({
       setLoading(true);
       setError(null);
 
+      let friendProfile: any = null;
+      if (typeof window !== 'undefined') {
+        const cached = localStorage.getItem(`santa_friend_${friendId}`);
+        if (cached) {
+          try {
+            friendProfile = JSON.parse(cached);
+          } catch {}
+        }
+      }
+
       const res = await fetch(`/api/friends/${friendId}/gifts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -176,13 +197,27 @@ export default function AddGiftModal({
           imageUrl: singleImageUrl || '',
           priceEstimate: singlePrice.trim(),
           priority: singlePriority,
-          notes: singleNotes.trim()
+          notes: singleNotes.trim(),
+          friendProfile
         })
       });
 
       const json = await res.json();
       if (!res.ok || !json.success) {
         throw new Error(json.error || 'No se pudo guardar el regalo');
+      }
+
+      if (typeof window !== 'undefined') {
+        try {
+          const raw = localStorage.getItem(`santa_friend_${friendId}`);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            parsed.gifts = [json.data, ...(parsed.gifts || [])];
+            localStorage.setItem(`santa_friend_${friendId}`, JSON.stringify(parsed));
+          }
+        } catch (e) {
+          console.warn('LocalStorage error:', e);
+        }
       }
 
       confetti({ particleCount: 40, spread: 60, origin: { y: 0.6 } });
