@@ -203,46 +203,47 @@ export default function AddGiftModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden max-h-[92vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150">
+      <div className="relative w-full max-w-2xl bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200 overflow-hidden max-h-[94dvh] sm:max-h-[92vh] flex flex-col">
         {/* Cabecera sin sparkles, limpia y moderna */}
-        <div className="bg-slate-900 text-white p-5 relative border-b border-slate-800">
+        <div className="bg-slate-900 text-white p-4 sm:p-5 relative border-b border-slate-800 shrink-0">
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 text-slate-400 hover:text-white p-1.5 rounded-full hover:bg-white/10 transition-colors"
+            className="absolute top-3.5 right-3.5 text-slate-400 hover:text-white p-2 rounded-full hover:bg-white/10 transition-colors"
+            title="Cerrar"
           >
             <X className="w-5 h-5" />
           </button>
-          <h2 className="text-xl font-bold tracking-tight">Agregar a mi Wishlist</h2>
+          <h2 className="text-lg sm:text-xl font-bold tracking-tight">Agregar a mi Wishlist</h2>
           <p className="text-xs text-slate-400 mt-0.5">
             Sube fotos o capturas de lo que te gustaría que te regalen.
           </p>
 
           {/* Selector de modo: Masivo vs Individual */}
-          <div className="flex gap-2 mt-4">
+          <div className="flex gap-2 mt-3 sm:mt-4">
             <button
               type="button"
               onClick={() => setUploadMode('batch')}
-              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+              className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 sm:gap-2 transition-all ${
                 uploadMode === 'batch'
                   ? 'bg-red-600 text-white shadow-md'
                   : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
               }`}
             >
-              <Layers className="w-4 h-4" />
-              <span>Subir varias fotos a la vez (Capturas)</span>
+              <Layers className="w-4 h-4 shrink-0" />
+              <span className="truncate">Varias fotos (Capturas)</span>
             </button>
             <button
               type="button"
               onClick={() => setUploadMode('single')}
-              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+              className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 sm:gap-2 transition-all ${
                 uploadMode === 'single'
                   ? 'bg-red-600 text-white shadow-md'
                   : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
               }`}
             >
-              <Plus className="w-4 h-4" />
-              <span>Un solo regalo con enlace</span>
+              <Plus className="w-4 h-4 shrink-0" />
+              <span className="truncate">Un regalo con link</span>
             </button>
           </div>
         </div>

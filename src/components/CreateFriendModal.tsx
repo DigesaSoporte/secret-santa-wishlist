@@ -72,17 +72,18 @@ export default function CreateFriendModal({ isOpen, onClose, onCreated }: Create
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden max-h-[92vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150">
+      <div className="relative w-full max-w-md bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200 overflow-hidden max-h-[94dvh] sm:max-h-[92vh] flex flex-col">
         {/* Cabecera limpia */}
-        <div className="bg-slate-900 text-white p-5 relative border-b border-slate-800">
+        <div className="bg-slate-900 text-white p-4 sm:p-5 relative border-b border-slate-800 shrink-0">
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-full hover:bg-white/10 transition-colors"
+            className="absolute top-3.5 right-3.5 text-slate-400 hover:text-white p-2 rounded-full hover:bg-white/10 transition-colors"
+            title="Cerrar"
           >
             <X className="w-5 h-5" />
           </button>
-          <h2 className="text-xl font-bold tracking-tight">Crear mi Carpeta de Deseos</h2>
+          <h2 className="text-lg sm:text-xl font-bold tracking-tight">Crear mi Carpeta de Deseos</h2>
           <p className="text-xs text-slate-400 mt-0.5">
             Solo te tomará unos segundos sumarte al Amigo Secreto.
           </p>

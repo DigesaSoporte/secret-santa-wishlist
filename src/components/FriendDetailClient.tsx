@@ -86,9 +86,25 @@ export default function FriendDetailClient({ friendId }: FriendDetailClientProps
     sessionStorage.removeItem(`santa_pin_${friendId}`);
   };
 
-  const handleShare = () => {
+  const handleShare = async () => {
     if (typeof window !== 'undefined') {
-      navigator.clipboard.writeText(window.location.href);
+      const shareUrl = window.location.href;
+      const shareText = `¡Mira mi carpeta de deseos para el Amigo Secreto en ${friend?.name}! Entra a ver qué me gustaría recibir:`;
+
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: `Wishlist de ${friend?.name} | Amigo Secreto`,
+            text: shareText,
+            url: shareUrl
+          });
+          return;
+        } catch {
+          // Si el usuario canceló el diálogo nativo, no hacemos nada o copiamos
+        }
+      }
+
+      await navigator.clipboard.writeText(shareUrl);
       setCopiedLink(true);
       setTimeout(() => setCopiedLink(false), 2500);
     }
@@ -138,7 +154,7 @@ export default function FriendDetailClient({ friendId }: FriendDetailClientProps
       <SnowEffect />
       <Navbar />
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 relative z-10">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-28 sm:pb-8 relative z-10">
         {/* Barra superior */}
         <div className="flex items-center justify-between gap-4 mb-6">
           <Link
@@ -325,6 +341,36 @@ export default function FriendDetailClient({ friendId }: FriendDetailClientProps
           )}
         </section>
       </main>
+
+      {/* Barra de acción fija inferior en celulares (Mobile Sticky Action Bar) */}
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 p-3 shadow-lg flex items-center gap-2">
+        {isOwner ? (
+          <button
+            onClick={() => setIsAddGiftOpen(true)}
+            className="flex-1 h-12 bg-red-600 hover:bg-red-700 active:scale-[0.98] text-white font-bold text-sm rounded-xl shadow-md flex items-center justify-center gap-2 transition-all"
+          >
+            <Upload className="w-4 h-4" />
+            <span>+ Subir fotos o capturas</span>
+          </button>
+        ) : (
+          <>
+            <button
+              onClick={() => setIsPinModalOpen(true)}
+              className="flex-1 h-12 bg-slate-900 active:scale-[0.98] text-white font-bold text-xs rounded-xl shadow-sm flex items-center justify-center gap-1.5"
+            >
+              <Lock className="w-3.5 h-3.5 text-amber-300" />
+              <span>¿Eres {friend.name}? Editar</span>
+            </button>
+            <button
+              onClick={handleShare}
+              className="h-12 px-4 bg-slate-100 hover:bg-slate-200 active:scale-[0.98] text-slate-800 font-bold text-xs rounded-xl border border-slate-200 flex items-center justify-center gap-1.5"
+            >
+              <Share2 className="w-4 h-4 text-red-600" />
+              <span>Compartir</span>
+            </button>
+          </>
+        )}
+      </div>
 
       {/* Modal PIN */}
       <PinVerifyModal
