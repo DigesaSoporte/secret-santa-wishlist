@@ -99,3 +99,71 @@ export function markAllGiftsAsSeen(allGiftIds: string[] = []): void {
     window.dispatchEvent(new CustomEvent('santa_gifts_seen_updated'));
   } catch {}
 }
+
+/**
+ * Representa la información de reserva o apartado de un regalo
+ */
+export interface ParsedReservation {
+  by: string;
+  msg?: string;
+}
+
+/**
+ * Parsea el string `purchasedBy` (JSON o texto plano) de forma segura y retrocompatible.
+ */
+export function parsePurchasedBy(raw?: string | null): ParsedReservation | null {
+  if (!raw || !raw.trim()) return null;
+  const str = raw.trim();
+
+  // Si fue guardado como objeto JSON
+  if (str.startsWith('{') && str.endsWith('}')) {
+    try {
+      const parsed = JSON.parse(str);
+      if (parsed && typeof parsed === 'object') {
+        return {
+          by: (parsed.by || 'Tu Amigo Secreto 🤫').trim(),
+          msg: parsed.msg && typeof parsed.msg === 'string' ? parsed.msg.trim() : undefined
+        };
+      }
+    } catch {}
+  }
+
+  // Formato delimitado por " ~ "
+  if (str.includes(' ~ ')) {
+    const [by, ...rest] = str.split(' ~ ');
+    return {
+      by: (by || 'Tu Amigo Secreto 🤫').trim(),
+      msg: rest.join(' ~ ').trim() || undefined
+    };
+  }
+
+  // Formato delimitado por ": "
+  if (str.includes(': ')) {
+    const [by, ...rest] = str.split(': ');
+    return {
+      by: (by || 'Tu Amigo Secreto 🤫').trim(),
+      msg: rest.join(': ').trim() || undefined
+    };
+  }
+
+  // Texto simple (solo alias/nombre)
+  return { by: str };
+}
+
+/**
+ * Formatea los datos de reserva para almacenarlos en `purchased_by` / `purchasedBy`.
+ */
+export function formatPurchasedBy(by: string, msg?: string): string {
+  const cleanBy = by.trim() || 'Tu Amigo Secreto 🤫';
+  const cleanMsg = msg ? msg.trim() : '';
+
+  if (!cleanMsg) {
+    return cleanBy;
+  }
+
+  return JSON.stringify({
+    by: cleanBy,
+    msg: cleanMsg
+  });
+}
+

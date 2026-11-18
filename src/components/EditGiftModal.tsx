@@ -12,7 +12,7 @@ interface EditGiftModalProps {
   gift: GiftItem;
   friendId: string;
   pin: string;
-  onGiftUpdated: () => void;
+  onGiftUpdated?: (updatedGift?: GiftItem) => void;
 }
 
 export default function EditGiftModal({
@@ -97,7 +97,7 @@ export default function EditGiftModal({
       }
 
       confetti({ particleCount: 40, spread: 55, origin: { y: 0.6 } });
-      onGiftUpdated();
+      onGiftUpdated?.(json.data);
       onClose();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Error al guardar los cambios');

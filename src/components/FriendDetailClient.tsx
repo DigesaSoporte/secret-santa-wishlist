@@ -41,7 +41,9 @@ export default function FriendDetailClient({ friendId }: FriendDetailClientProps
   // Estado de autenticación del dueño con PIN
   const [unlockedPin, setUnlockedPin] = useState<string | null>(null);
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
-  const [pendingAction, setPendingAction] = useState<'add_gift' | 'edit_profile' | null>(null);
+  const [pendingAction, setPendingAction] = useState<
+    'add_gift' | 'edit_profile' | { type: 'edit_gift'; gift: GiftItem } | null
+  >(null);
 
   // Modales
   const [isAddGiftOpen, setIsAddGiftOpen] = useState(false);
@@ -141,6 +143,8 @@ export default function FriendDetailClient({ friendId }: FriendDetailClientProps
 
       if (pendingAction === 'edit_profile') {
         setIsEditProfileOpen(true);
+      } else if (pendingAction && typeof pendingAction === 'object' && pendingAction.type === 'edit_gift') {
+        setEditingGift(pendingAction.gift);
       } else {
         setIsAddGiftOpen(true);
       }
@@ -148,6 +152,62 @@ export default function FriendDetailClient({ friendId }: FriendDetailClientProps
     } else {
       alert('PIN incorrecto. Intenta de nuevo.');
     }
+  };
+
+  const handleRequestEditGift = (giftToEdit: GiftItem) => {
+    if (unlockedPin && friend && unlockedPin === friend.pin) {
+      setEditingGift(giftToEdit);
+    } else {
+      setPendingAction({ type: 'edit_gift', gift: giftToEdit });
+      setIsPinModalOpen(true);
+    }
+  };
+
+  const handleGiftUpdated = (updatedGift?: GiftItem) => {
+    if (!updatedGift) {
+      fetchFriendData();
+      return;
+    }
+    setFriend((prev) => {
+      if (!prev) return prev;
+      const nextGifts = prev.gifts.map((g) => (g.id === updatedGift.id ? updatedGift : g));
+      const nextFriend = { ...prev, gifts: nextGifts };
+      try {
+        localStorage.setItem(`santa_friend_${prev.id}`, JSON.stringify(nextFriend));
+      } catch {}
+      return nextFriend;
+    });
+    setEditingGift(null);
+    showToast('¡Regalo actualizado con éxito!');
+  };
+
+  const handleGiftDeleted = (giftId: string) => {
+    setFriend((prev) => {
+      if (!prev) return prev;
+      const nextGifts = prev.gifts.filter((g) => g.id !== giftId);
+      const nextFriend = { ...prev, gifts: nextGifts };
+      try {
+        localStorage.setItem(`santa_friend_${prev.id}`, JSON.stringify(nextFriend));
+      } catch {}
+      return nextFriend;
+    });
+    showToast('Regalo eliminado de tu lista');
+  };
+
+  const handleGiftPurchasedToggled = (updatedGift?: GiftItem) => {
+    if (!updatedGift) {
+      fetchFriendData();
+      return;
+    }
+    setFriend((prev) => {
+      if (!prev) return prev;
+      const nextGifts = prev.gifts.map((g) => (g.id === updatedGift.id ? updatedGift : g));
+      const nextFriend = { ...prev, gifts: nextGifts };
+      try {
+        localStorage.setItem(`santa_friend_${prev.id}`, JSON.stringify(nextFriend));
+      } catch {}
+      return nextFriend;
+    });
   };
 
   const handleLockOwner = () => {
@@ -718,12 +778,13 @@ export default function FriendDetailClient({ friendId }: FriendDetailClientProps
                   key={gift.id}
                   gift={gift}
                   friendId={friend.id}
+                  friendName={friend.name}
                   isOwner={isOwner}
                   pin={unlockedPin || undefined}
-                  onDeleted={fetchFriendData}
-                  onToggledPurchased={fetchFriendData}
+                  onDeleted={() => handleGiftDeleted(gift.id)}
+                  onToggledPurchased={handleGiftPurchasedToggled}
                   onPreviewImage={(url, title) => setPreviewImage({ url, title })}
-                  onEdit={(g) => setEditingGift(g)}
+                  onEdit={handleRequestEditGift}
                 />
               ))}
             </div>
@@ -813,10 +874,7 @@ export default function FriendDetailClient({ friendId }: FriendDetailClientProps
           gift={editingGift}
           friendId={friend.id}
           pin={unlockedPin}
-          onGiftUpdated={() => {
-            fetchFriendData();
-            showToast('¡Regalo actualizado con éxito!');
-          }}
+          onGiftUpdated={handleGiftUpdated}
         />
       )}
 

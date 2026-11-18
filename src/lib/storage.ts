@@ -61,20 +61,53 @@ let memoryDb: DatabaseSchema = {
   gifts: [...INITIAL_GIFTS]
 };
 
+// Caché en memoria para evitar I/O de disco síncrono repetitivo y saturación de peticiones
+let cachedLocalDb: DatabaseSchema | null = null;
+let lastLocalDbReadTime = 0;
+const LOCAL_DB_CACHE_TTL = 3000; // 3 segundos
+
+let cachedFriends: FriendWithGifts[] | null = null;
+let lastFriendsReadTime = 0;
+const FRIENDS_CACHE_TTL = 3000; // 3 segundos
+
+let cachedRecentGifts: RecentGiftNotification[] | null = null;
+let lastRecentGiftsReadTime = 0;
+const RECENT_GIFTS_CACHE_TTL = 3000; // 3 segundos
+
+export function invalidateStorageCache(): void {
+  cachedLocalDb = null;
+  cachedFriends = null;
+  cachedRecentGifts = null;
+  lastLocalDbReadTime = 0;
+  lastFriendsReadTime = 0;
+  lastRecentGiftsReadTime = 0;
+}
+
 function readLocalDb(): DatabaseSchema {
+  const now = Date.now();
+  if (cachedLocalDb && now - lastLocalDbReadTime < LOCAL_DB_CACHE_TTL) {
+    return cachedLocalDb;
+  }
   try {
     if (fs.existsSync(DB_PATH)) {
       const data = fs.readFileSync(DB_PATH, 'utf-8');
-      return JSON.parse(data);
+      cachedLocalDb = JSON.parse(data);
+      lastLocalDbReadTime = now;
+      return cachedLocalDb!;
     }
   } catch (error) {
     console.warn('Could not read local DB, using memoryDb', error);
   }
+  cachedLocalDb = memoryDb;
+  lastLocalDbReadTime = now;
   return memoryDb;
 }
 
 function writeLocalDb(data: DatabaseSchema): void {
   memoryDb = data;
+  cachedLocalDb = data;
+  lastLocalDbReadTime = Date.now();
+  invalidateStorageCache();
   try {
     const dir = path.dirname(DB_PATH);
     if (!fs.existsSync(dir)) {
@@ -130,14 +163,24 @@ export async function uploadImageToStorage(base64OrUrl: string, giftId: string):
 }
 
 export async function getAllFriends(): Promise<FriendWithGifts[]> {
+  const now = Date.now();
+  if (cachedFriends && now - lastFriendsReadTime < FRIENDS_CACHE_TTL) {
+    return cachedFriends;
+  }
+
+  let result: FriendWithGifts[];
+
   // 1. Si KV (Vercel KV / Upstash) está activo
   if (isKvConfigured) {
     const kvData = await kvGet<DatabaseSchema>('secret_santa_db');
     if (kvData && Array.isArray(kvData.friends)) {
-      return kvData.friends.map((f) => ({
+      result = kvData.friends.map((f) => ({
         ...f,
         gifts: (kvData.gifts || []).filter((g) => g.friendId === f.id)
       }));
+      cachedFriends = result;
+      lastFriendsReadTime = now;
+      return result;
     }
   }
 
@@ -168,7 +211,7 @@ export async function getAllFriends(): Promise<FriendWithGifts[]> {
         createdAt: g.created_at
       })) as GiftItem[];
 
-      return friendsData.map((f) => ({
+      result = friendsData.map((f) => ({
         id: f.id,
         name: f.name,
         avatar: f.avatar,
@@ -182,15 +225,22 @@ export async function getAllFriends(): Promise<FriendWithGifts[]> {
         createdAt: f.created_at,
         gifts: allGifts.filter((g) => g.friendId === f.id)
       }));
+
+      cachedFriends = result;
+      lastFriendsReadTime = now;
+      return result;
     }
   }
 
   // 3. Fallback en archivo (/tmp o data/db.json) y memoria
   const db = readLocalDb();
-  return db.friends.map((f) => ({
+  result = db.friends.map((f) => ({
     ...f,
     gifts: db.gifts.filter((g) => g.friendId === f.id)
   }));
+  cachedFriends = result;
+  lastFriendsReadTime = now;
+  return result;
 }
 
 export async function getFriendById(id: string): Promise<FriendWithGifts | null> {
@@ -260,6 +310,7 @@ export async function getFriendById(id: string): Promise<FriendWithGifts | null>
 export async function createFriend(
   data: Omit<FriendProfile, 'createdAt'>
 ): Promise<FriendProfile> {
+  invalidateStorageCache();
   const newFriend: FriendProfile = {
     ...data,
     createdAt: new Date().toISOString()
@@ -322,6 +373,7 @@ export async function updateFriend(
   id: string,
   updates: Partial<Omit<FriendProfile, 'id' | 'createdAt'>>
 ): Promise<FriendProfile> {
+  invalidateStorageCache();
   if (isKvConfigured) {
     const kvData = (await kvGet<DatabaseSchema>('secret_santa_db')) || { friends: [], gifts: [] };
     const index = kvData.friends.findIndex((f) => f.id.toLowerCase() === id.toLowerCase());
@@ -361,6 +413,7 @@ export async function addGift(
   friendId: string,
   giftData: Omit<GiftItem, 'id' | 'friendId' | 'createdAt'>
 ): Promise<GiftItem> {
+  invalidateStorageCache();
   const newGiftId = `gift-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
   let finalImageUrl = giftData.imageUrl || '';
 
@@ -415,6 +468,7 @@ export async function addMultipleGifts(
   friendId: string,
   giftsData: Array<Omit<GiftItem, 'id' | 'friendId' | 'createdAt'>>
 ): Promise<GiftItem[]> {
+  invalidateStorageCache();
   const timestamp = Date.now();
   const newGifts: GiftItem[] = [];
 
@@ -473,6 +527,7 @@ export async function addMultipleGifts(
 }
 
 export async function deleteGift(giftId: string): Promise<boolean> {
+  invalidateStorageCache();
   if (isKvConfigured) {
     const kvData = (await kvGet<DatabaseSchema>('secret_santa_db')) || { friends: [], gifts: [] };
     kvData.gifts = kvData.gifts.filter((g) => g.id !== giftId);
@@ -497,6 +552,7 @@ export async function toggleGiftPurchased(
   isPurchased: boolean,
   purchasedBy?: string
 ): Promise<GiftItem> {
+  invalidateStorageCache();
   if (isKvConfigured) {
     const kvData = (await kvGet<DatabaseSchema>('secret_santa_db')) || { friends: [], gifts: [] };
     const gift = kvData.gifts.find((g) => g.id === giftId);
@@ -533,6 +589,7 @@ export async function updateGift(
   giftId: string,
   updates: Partial<Omit<GiftItem, 'id' | 'friendId' | 'createdAt'>>
 ): Promise<GiftItem> {
+  invalidateStorageCache();
   // Si la imagen es base64, subirla a Supabase Storage si está activo
   let finalImageUrl = updates.imageUrl;
   if (finalImageUrl && finalImageUrl.startsWith('data:image')) {
@@ -594,6 +651,7 @@ export async function updateGift(
 }
 
 export async function deleteFriend(friendId: string): Promise<boolean> {
+  invalidateStorageCache();
   // 1. KV
   if (isKvConfigured) {
     const kvData = (await kvGet<DatabaseSchema>('secret_santa_db')) || { friends: [], gifts: [] };
@@ -699,6 +757,11 @@ export async function getActivityLogs(): Promise<ActivityLog[]> {
 }
 
 export async function getRecentGifts(limit = 20): Promise<RecentGiftNotification[]> {
+  const now = Date.now();
+  if (cachedRecentGifts && now - lastRecentGiftsReadTime < RECENT_GIFTS_CACHE_TTL) {
+    return cachedRecentGifts.slice(0, limit);
+  }
+
   const friends = await getAllFriends();
   const all: RecentGiftNotification[] = [];
 
@@ -714,5 +777,7 @@ export async function getRecentGifts(limit = 20): Promise<RecentGiftNotification
 
   // Ordenar por fecha más reciente
   all.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+  cachedRecentGifts = all;
+  lastRecentGiftsReadTime = now;
   return all.slice(0, limit);
 }
