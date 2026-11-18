@@ -1,13 +1,14 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { FriendProfile, GiftItem, FriendWithGifts } from '@/types';
+import { FriendProfile, GiftItem, FriendWithGifts, ActivityLog } from '@/types';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { INITIAL_FRIENDS, INITIAL_GIFTS } from './seed-data';
 
 interface DatabaseSchema {
   friends: FriendProfile[];
   gifts: GiftItem[];
+  logs?: ActivityLog[];
 }
 
 // Ruta escribible en Vercel Serverless (/tmp) o local (data/db.json)
@@ -129,6 +130,8 @@ export async function getAllFriends(): Promise<FriendWithGifts[]> {
         dislikes: f.dislikes,
         shirtSize: f.shirt_size,
         shoeSize: f.shoe_size,
+        ipAddress: f.ip_address || '',
+        userAgent: f.user_agent || '',
         createdAt: f.created_at,
         gifts: allGifts.filter((g) => g.friendId === f.id)
       }));
@@ -172,7 +175,7 @@ export async function createFriend(
   // 2. Guardar en Supabase si está activo
   if (isSupabaseConfigured() && supabase) {
     try {
-      const { error } = await supabase.from('friends').insert({
+      const payload: Record<string, any> = {
         id: newFriend.id,
         name: newFriend.name,
         avatar: newFriend.avatar,
@@ -182,7 +185,12 @@ export async function createFriend(
         shirt_size: newFriend.shirtSize,
         shoe_size: newFriend.shoeSize,
         created_at: newFriend.createdAt
-      });
+      };
+
+      if (newFriend.ipAddress) payload.ip_address = newFriend.ipAddress;
+      if (newFriend.userAgent) payload.user_agent = newFriend.userAgent;
+
+      const { error } = await supabase.from('friends').insert(payload);
 
       if (!error) {
         return newFriend;
@@ -393,4 +401,109 @@ export async function toggleGiftPurchased(
   gift.purchasedBy = purchasedBy;
   writeLocalDb(db);
   return gift;
+}
+
+export async function deleteFriend(friendId: string): Promise<boolean> {
+  // 1. KV
+  if (isKvConfigured) {
+    const kvData = (await kvGet<DatabaseSchema>('secret_santa_db')) || { friends: [], gifts: [] };
+    kvData.friends = kvData.friends.filter((f) => f.id !== friendId);
+    kvData.gifts = kvData.gifts.filter((g) => g.friendId !== friendId);
+    await kvSet('secret_santa_db', kvData);
+  }
+
+  // 2. Supabase
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      await supabase.from('gifts').delete().eq('friend_id', friendId);
+      await supabase.from('friends').delete().eq('id', friendId);
+    } catch (err) {
+      console.warn('Supabase deleteFriend error:', err);
+    }
+  }
+
+  // 3. Local
+  const db = readLocalDb();
+  db.friends = db.friends.filter((f) => f.id !== friendId);
+  db.gifts = db.gifts.filter((g) => g.friendId !== friendId);
+  writeLocalDb(db);
+  return true;
+}
+
+export async function logActivity(entry: {
+  action: string;
+  targetId?: string;
+  targetName?: string;
+  ip: string;
+  userAgent: string;
+}): Promise<void> {
+  const newLog: ActivityLog = {
+    id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    ...entry,
+    createdAt: new Date().toISOString()
+  };
+
+  // KV
+  if (isKvConfigured) {
+    const kvData = (await kvGet<DatabaseSchema>('secret_santa_db')) || { friends: [], gifts: [], logs: [] };
+    if (!kvData.logs) kvData.logs = [];
+    kvData.logs.unshift(newLog);
+    if (kvData.logs.length > 200) kvData.logs = kvData.logs.slice(0, 200);
+    await kvSet('secret_santa_db', kvData);
+    return;
+  }
+
+  // Supabase (intenta insertar si la tabla existe)
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      await supabase.from('activity_logs').insert({
+        id: newLog.id,
+        action: newLog.action,
+        target_id: newLog.targetId,
+        target_name: newLog.targetName,
+        ip: newLog.ip,
+        user_agent: newLog.userAgent,
+        created_at: newLog.createdAt
+      });
+    } catch {}
+  }
+
+  // Local
+  const db = readLocalDb();
+  if (!db.logs) db.logs = [];
+  db.logs.unshift(newLog);
+  if (db.logs.length > 200) db.logs = db.logs.slice(0, 200);
+  writeLocalDb(db);
+}
+
+export async function getActivityLogs(): Promise<ActivityLog[]> {
+  if (isKvConfigured) {
+    const kvData = await kvGet<DatabaseSchema>('secret_santa_db');
+    if (kvData?.logs) return kvData.logs;
+  }
+
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('activity_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (!error && data) {
+        return data.map((l) => ({
+          id: l.id,
+          action: l.action,
+          targetId: l.target_id,
+          targetName: l.target_name,
+          ip: l.ip,
+          userAgent: l.user_agent,
+          createdAt: l.created_at
+        }));
+      }
+    } catch {}
+  }
+
+  const db = readLocalDb();
+  return db.logs || [];
 }

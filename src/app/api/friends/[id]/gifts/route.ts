@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getFriendById, addGift, addMultipleGifts, createFriend } from '@/lib/storage';
+import { getFriendById, addGift, addMultipleGifts, createFriend, logActivity } from '@/lib/storage';
+import { getClientIp, getClientUserAgent } from '@/lib/ip-utils';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -61,6 +62,16 @@ export async function POST(request: Request, context: RouteContext) {
       }));
 
       const createdList = await addMultipleGifts(id, formattedItems);
+      const ip = getClientIp(request);
+      const userAgent = getClientUserAgent(request);
+      logActivity({
+        action: 'SUBIDA_REGALOS_MASIVA',
+        targetId: id,
+        targetName: friend.name,
+        ip,
+        userAgent
+      }).catch(() => {});
+
       return NextResponse.json({ success: true, count: createdList.length, data: createdList }, { status: 201 });
     }
 

@@ -7,6 +7,8 @@ export interface FriendProfile {
   dislikes?: string;
   shirtSize?: string;
   shoeSize?: string;
+  ipAddress?: string;
+  userAgent?: string;
   createdAt: string;
 }
 
@@ -28,3 +30,12 @@ export interface FriendWithGifts extends FriendProfile {
   gifts: GiftItem[];
 }
 
+export interface ActivityLog {
+  id: string;
+  action: string;
+  targetId?: string;
+  targetName?: string;
+  ip: string;
+  userAgent: string;
+  createdAt: string;
+}

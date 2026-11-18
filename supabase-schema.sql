@@ -13,8 +13,14 @@ CREATE TABLE IF NOT EXISTS public.friends (
   dislikes TEXT,
   shirt_size TEXT,
   shoe_size TEXT,
+  ip_address TEXT,
+  user_agent TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Si la tabla ya existía, agregar columnas ip_address y user_agent por si acaso
+ALTER TABLE public.friends ADD COLUMN IF NOT EXISTS ip_address TEXT;
+ALTER TABLE public.friends ADD COLUMN IF NOT EXISTS user_agent TEXT;
 
 -- 2. Tabla de regalos / deseos
 CREATE TABLE IF NOT EXISTS public.gifts (
@@ -31,17 +37,33 @@ CREATE TABLE IF NOT EXISTS public.gifts (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. Habilitar RLS pero permitir lectura/escritura pública con Anon Key para la app
+-- 3. Tabla de auditoría / logs de actividad
+CREATE TABLE IF NOT EXISTS public.activity_logs (
+  id TEXT PRIMARY KEY,
+  action TEXT NOT NULL,
+  target_id TEXT,
+  target_name TEXT,
+  ip TEXT,
+  user_agent TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 4. Habilitar RLS
 ALTER TABLE public.friends ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.gifts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.activity_logs ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Permitir todo en friends con clave anon" 
-ON public.friends FOR ALL 
-USING (true) 
-WITH CHECK (true);
+DO $$ 
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'friends' AND policyname = 'Permitir todo en friends') THEN
+    CREATE POLICY "Permitir todo en friends" ON public.friends FOR ALL USING (true) WITH CHECK (true);
+  END IF;
 
-CREATE POLICY "Permitir todo en gifts con clave anon" 
-ON public.gifts FOR ALL 
-USING (true) 
-WITH CHECK (true);
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'gifts' AND policyname = 'Permitir todo en gifts') THEN
+    CREATE POLICY "Permitir todo en gifts" ON public.gifts FOR ALL USING (true) WITH CHECK (true);
+  END IF;
 
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'activity_logs' AND policyname = 'Permitir todo en activity_logs') THEN
+    CREATE POLICY "Permitir todo en activity_logs" ON public.activity_logs FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getAllFriends, createFriend } from '@/lib/storage';
+import { getAllFriends, createFriend, logActivity } from '@/lib/storage';
+import { getClientIp, getClientUserAgent } from '@/lib/ip-utils';
 
 export async function GET() {
   try {
@@ -46,6 +47,9 @@ export async function POST(request: Request) {
       finalSlug = `${baseSlug}-${counter}`;
     }
 
+    const ip = getClientIp(request);
+    const userAgent = getClientUserAgent(request);
+
     const created = await createFriend({
       id: finalSlug,
       name: name.trim(),
@@ -54,8 +58,18 @@ export async function POST(request: Request) {
       bio: bio?.trim() || '',
       dislikes: dislikes?.trim() || '',
       shirtSize: shirtSize?.trim() || '',
-      shoeSize: shoeSize?.trim() || ''
+      shoeSize: shoeSize?.trim() || '',
+      ipAddress: ip,
+      userAgent: userAgent
     });
+
+    logActivity({
+      action: 'CREAR_CARPETA',
+      targetId: finalSlug,
+      targetName: name.trim(),
+      ip,
+      userAgent
+    }).catch(() => {});
 
     return NextResponse.json({ success: true, data: created }, { status: 201 });
   } catch (error: unknown) {
