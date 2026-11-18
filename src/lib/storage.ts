@@ -86,6 +86,49 @@ function writeLocalDb(data: DatabaseSchema): void {
   }
 }
 
+export async function uploadImageToStorage(base64OrUrl: string, giftId: string): Promise<string> {
+  if (!base64OrUrl || !base64OrUrl.startsWith('data:image')) {
+    return base64OrUrl;
+  }
+  if (!isSupabaseConfigured() || !supabase) {
+    return base64OrUrl;
+  }
+  try {
+    const match = base64OrUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    if (!match) return base64OrUrl;
+    const contentType = match[1];
+    const base64Data = match[2];
+    const buffer = Buffer.from(base64Data, 'base64');
+    const ext = contentType.includes('png')
+      ? 'png'
+      : contentType.includes('webp')
+      ? 'webp'
+      : 'jpg';
+    const filePath = `gifts/${giftId}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('wishlist-images')
+      .upload(filePath, buffer, {
+        contentType,
+        upsert: true
+      });
+
+    if (uploadError) {
+      console.warn('Storage upload error, keeping original:', uploadError);
+      return base64OrUrl;
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from('wishlist-images')
+      .getPublicUrl(filePath);
+
+    return publicUrlData.publicUrl || base64OrUrl;
+  } catch (err) {
+    console.warn('uploadImageToStorage exception:', err);
+    return base64OrUrl;
+  }
+}
+
 export async function getAllFriends(): Promise<FriendWithGifts[]> {
   // 1. Si KV (Vercel KV / Upstash) está activo
   if (isKvConfigured) {
@@ -106,7 +149,11 @@ export async function getAllFriends(): Promise<FriendWithGifts[]> {
       .order('created_at', { ascending: false });
 
     if (!friendsError && friendsData) {
-      const { data: giftsData } = await supabase.from('gifts').select('*');
+      const { data: giftsData } = await supabase
+        .from('gifts')
+        .select('*')
+        .order('created_at', { ascending: false });
+
       const allGifts = (giftsData || []).map((g) => ({
         id: g.id,
         friendId: g.friend_id,
@@ -147,8 +194,66 @@ export async function getAllFriends(): Promise<FriendWithGifts[]> {
 }
 
 export async function getFriendById(id: string): Promise<FriendWithGifts | null> {
+  let cleanId = id;
+  try {
+    cleanId = decodeURIComponent(id).trim().toLowerCase();
+  } catch {
+    cleanId = id.trim().toLowerCase();
+  }
+
+  // 1. Supabase directo: ultra rápido, ligero y no descarga toda la BD
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data: friendData, error: friendError } = await supabase
+        .from('friends')
+        .select('*')
+        .ilike('id', cleanId)
+        .maybeSingle();
+
+      if (friendData && !friendError) {
+        const { data: giftsData } = await supabase
+          .from('gifts')
+          .select('*')
+          .eq('friend_id', friendData.id)
+          .order('created_at', { ascending: false });
+
+        const gifts = ((giftsData || []) as any[]).map((g) => ({
+          id: g.id,
+          friendId: g.friend_id,
+          title: g.title,
+          link: g.link,
+          imageUrl: g.image_url,
+          priceEstimate: g.price_estimate,
+          priority: g.priority,
+          notes: g.notes,
+          isPurchased: g.is_purchased,
+          purchasedBy: g.purchased_by,
+          createdAt: g.created_at
+        })) as GiftItem[];
+
+        return {
+          id: friendData.id,
+          name: friendData.name,
+          avatar: friendData.avatar,
+          pin: friendData.pin,
+          bio: friendData.bio,
+          dislikes: friendData.dislikes,
+          shirtSize: friendData.shirt_size,
+          shoeSize: friendData.shoe_size,
+          ipAddress: friendData.ip_address || '',
+          userAgent: friendData.user_agent || '',
+          createdAt: friendData.created_at,
+          gifts
+        };
+      }
+    } catch (err) {
+      console.warn('Supabase getFriendById error:', err);
+    }
+  }
+
+  // 2. KV / Local fallback
   const all = await getAllFriends();
-  const match = all.find((f) => f.id.toLowerCase() === id.toLowerCase());
+  const match = all.find((f) => f.id.toLowerCase() === cleanId);
   return match || null;
 }
 
@@ -256,10 +361,18 @@ export async function addGift(
   friendId: string,
   giftData: Omit<GiftItem, 'id' | 'friendId' | 'createdAt'>
 ): Promise<GiftItem> {
+  const newGiftId = `gift-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+  let finalImageUrl = giftData.imageUrl || '';
+
+  if (finalImageUrl && finalImageUrl.startsWith('data:image')) {
+    finalImageUrl = await uploadImageToStorage(finalImageUrl, newGiftId);
+  }
+
   const newGift: GiftItem = {
     ...giftData,
-    id: `gift-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    id: newGiftId,
     friendId,
+    imageUrl: finalImageUrl,
     createdAt: new Date().toISOString()
   };
 
@@ -303,12 +416,25 @@ export async function addMultipleGifts(
   giftsData: Array<Omit<GiftItem, 'id' | 'friendId' | 'createdAt'>>
 ): Promise<GiftItem[]> {
   const timestamp = Date.now();
-  const newGifts: GiftItem[] = giftsData.map((giftData, index) => ({
-    ...giftData,
-    id: `gift-${timestamp}-${index}-${Math.random().toString(36).substring(2, 7)}`,
-    friendId,
-    createdAt: new Date().toISOString()
-  }));
+  const newGifts: GiftItem[] = [];
+
+  for (let index = 0; index < giftsData.length; index++) {
+    const giftData = giftsData[index];
+    const newGiftId = `gift-${timestamp}-${index}-${Math.random().toString(36).substring(2, 7)}`;
+    let finalImageUrl = giftData.imageUrl || '';
+
+    if (finalImageUrl && finalImageUrl.startsWith('data:image')) {
+      finalImageUrl = await uploadImageToStorage(finalImageUrl, newGiftId);
+    }
+
+    newGifts.push({
+      ...giftData,
+      id: newGiftId,
+      friendId,
+      imageUrl: finalImageUrl,
+      createdAt: new Date().toISOString()
+    });
+  }
 
   if (isKvConfigured) {
     const kvData = (await kvGet<DatabaseSchema>('secret_santa_db')) || { friends: [], gifts: [] };

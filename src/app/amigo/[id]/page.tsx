@@ -3,12 +3,21 @@ import FriendDetailClient from '@/components/FriendDetailClient';
 import SnowEffect from '@/components/SnowEffect';
 import Navbar from '@/components/Navbar';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 interface PageProps {
   params: Promise<{ id: string }>;
 }
 
 export default async function FriendPage({ params }: PageProps) {
   const { id } = await params;
+  let decodedId = id;
+  try {
+    decodedId = decodeURIComponent(id || '').trim();
+  } catch {
+    decodedId = (id || '').trim();
+  }
 
   return (
     <Suspense
@@ -23,7 +32,7 @@ export default async function FriendPage({ params }: PageProps) {
         </div>
       }
     >
-      <FriendDetailClient friendId={id} />
+      <FriendDetailClient friendId={decodedId} />
     </Suspense>
   );
 }

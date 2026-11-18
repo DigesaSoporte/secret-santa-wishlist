@@ -2,6 +2,15 @@ import { NextResponse } from 'next/server';
 import { getFriendById, addGift, addMultipleGifts, createFriend, logActivity } from '@/lib/storage';
 import { getClientIp, getClientUserAgent } from '@/lib/ip-utils';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+const NO_CACHE_HEADERS = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+  Pragma: 'no-cache',
+  Expires: '0'
+};
+
 interface RouteContext {
   params: Promise<{ id: string }>;
 }
@@ -9,18 +18,19 @@ interface RouteContext {
 export async function POST(request: Request, context: RouteContext) {
   try {
     const { id } = await context.params;
+    const cleanId = decodeURIComponent(id || '').trim();
     const body = await request.json();
     const { pin, gifts, title, link, imageUrl, priceEstimate, priority, notes, friendProfile } = body;
 
-    let friend = await getFriendById(id);
+    let friend = await getFriendById(cleanId);
 
     // Si la lambda serverless de Vercel no tiene la carpeta en su contenedor local,
     // la auto-restaura al vuelo con el perfil del usuario para evitar 404.
     if (!friend && (friendProfile || pin)) {
       try {
         const created = await createFriend({
-          id,
-          name: friendProfile?.name || id,
+          id: cleanId,
+          name: friendProfile?.name || cleanId,
           avatar: friendProfile?.avatar || '🎅',
           pin: (friendProfile?.pin || pin).toString().trim(),
           bio: friendProfile?.bio || '',
@@ -30,14 +40,14 @@ export async function POST(request: Request, context: RouteContext) {
         });
         friend = { ...created, gifts: [] };
       } catch {
-        friend = await getFriendById(id);
+        friend = await getFriendById(cleanId);
       }
     }
 
     if (!friend) {
       return NextResponse.json(
         { success: false, error: 'Carpeta no encontrada' },
-        { status: 404 }
+        { status: 404, headers: NO_CACHE_HEADERS }
       );
     }
 
@@ -45,7 +55,7 @@ export async function POST(request: Request, context: RouteContext) {
     if (!pin || pin.toString().trim() !== friend.pin.trim()) {
       return NextResponse.json(
         { success: false, error: 'PIN incorrecto. Ingresa el PIN correcto de esta carpeta.' },
-        { status: 403 }
+        { status: 403, headers: NO_CACHE_HEADERS }
       );
     }
 
@@ -61,29 +71,32 @@ export async function POST(request: Request, context: RouteContext) {
         isPurchased: false
       }));
 
-      const createdList = await addMultipleGifts(id, formattedItems);
+      const createdList = await addMultipleGifts(friend.id, formattedItems);
       const ip = getClientIp(request);
       const userAgent = getClientUserAgent(request);
       logActivity({
         action: 'SUBIDA_REGALOS_MASIVA',
-        targetId: id,
+        targetId: friend.id,
         targetName: friend.name,
         ip,
         userAgent
       }).catch(() => {});
 
-      return NextResponse.json({ success: true, count: createdList.length, data: createdList }, { status: 201 });
+      return NextResponse.json(
+        { success: true, count: createdList.length, data: createdList },
+        { status: 201, headers: NO_CACHE_HEADERS }
+      );
     }
 
     // Caso 2: Un solo regalo
     if (!title || !title.trim()) {
       return NextResponse.json(
         { success: false, error: 'El nombre o título del regalo es obligatorio' },
-        { status: 400 }
+        { status: 400, headers: NO_CACHE_HEADERS }
       );
     }
 
-    const gift = await addGift(id, {
+    const gift = await addGift(friend.id, {
       title: title.trim(),
       link: link?.trim() || '',
       imageUrl: imageUrl || '',
@@ -93,9 +106,15 @@ export async function POST(request: Request, context: RouteContext) {
       isPurchased: false
     });
 
-    return NextResponse.json({ success: true, data: gift }, { status: 201 });
+    return NextResponse.json(
+      { success: true, data: gift },
+      { status: 201, headers: NO_CACHE_HEADERS }
+    );
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Error al guardar';
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: message },
+      { status: 500, headers: NO_CACHE_HEADERS }
+    );
   }
 }

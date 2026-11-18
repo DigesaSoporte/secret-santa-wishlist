@@ -19,13 +19,15 @@ export default function HomePage() {
   const fetchFriends = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/friends');
+      const res = await fetch('/api/friends', { cache: 'no-store' });
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
         if (json.data.length > 0) {
           setFriends(json.data);
           if (typeof window !== 'undefined') {
-            localStorage.setItem('santa_all_friends', JSON.stringify(json.data));
+            try {
+              localStorage.setItem('santa_all_friends', JSON.stringify(json.data));
+            } catch {}
           }
           return;
         }
@@ -33,34 +35,28 @@ export default function HomePage() {
 
       // Si el servidor devolvió vacío, verificar si hay respaldo en localStorage
       if (typeof window !== 'undefined') {
-        const cachedRaw = localStorage.getItem('santa_all_friends');
-        if (cachedRaw) {
-          const cached = JSON.parse(cachedRaw);
-          if (Array.isArray(cached) && cached.length > 0) {
-            setFriends(cached);
-            // Sincronizar en servidor
-            cached.forEach((f: any) => {
-              fetch('/api/friends', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(f)
-              }).catch(() => {});
-            });
-            return;
+        try {
+          const cachedRaw = localStorage.getItem('santa_all_friends');
+          if (cachedRaw) {
+            const cached = JSON.parse(cachedRaw);
+            if (Array.isArray(cached) && cached.length > 0) {
+              setFriends(cached);
+              return;
+            }
           }
-        }
+        } catch {}
       }
 
       setFriends([]);
     } catch (error) {
       console.error('Error fetching friends:', error);
       if (typeof window !== 'undefined') {
-        const cachedRaw = localStorage.getItem('santa_all_friends');
-        if (cachedRaw) {
-          try {
+        try {
+          const cachedRaw = localStorage.getItem('santa_all_friends');
+          if (cachedRaw) {
             setFriends(JSON.parse(cachedRaw));
-          } catch {}
-        }
+          }
+        } catch {}
       }
     } finally {
       setLoading(false);

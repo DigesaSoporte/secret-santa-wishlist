@@ -97,6 +97,8 @@ export default function GiftCard({
             <img
               src={gift.imageUrl}
               alt={gift.title}
+              loading="lazy"
+              decoding="async"
               className="w-full h-full object-cover cursor-pointer group-hover:scale-105 transition-transform duration-300"
               onClick={() => onPreviewImage(gift.imageUrl!, gift.title)}
             />

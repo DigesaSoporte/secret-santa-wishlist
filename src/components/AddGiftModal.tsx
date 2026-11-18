@@ -64,7 +64,7 @@ export default function AddGiftModal({
       const file = files[i];
       try {
         setProcessingProgress(`Optimizando foto ${i + 1} de ${files.length}...`);
-        const compressed = await compressImage(file, 900, 900, 0.82);
+        const compressed = await compressImage(file, 800, 800, 0.75);
         const cleanName = file.name
           .replace(/\.[^/.]+$/, '')
           .replace(/[-_]/g, ' ')
@@ -127,7 +127,7 @@ export default function AddGiftModal({
         }
       }
 
-      const res = await fetch(`/api/friends/${friendId}/gifts`, {
+      const res = await fetch(`/api/friends/${encodeURIComponent(friendId)}/gifts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -187,7 +187,7 @@ export default function AddGiftModal({
         }
       }
 
-      const res = await fetch(`/api/friends/${friendId}/gifts`, {
+      const res = await fetch(`/api/friends/${encodeURIComponent(friendId)}/gifts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

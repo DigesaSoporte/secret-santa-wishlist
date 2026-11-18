@@ -49,48 +49,37 @@ export default function FriendDetailClient({ friendId }: FriendDetailClientProps
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch(`/api/friends/${friendId}`);
+      let decodedId = friendId;
+      try {
+        decodedId = decodeURIComponent(friendId).trim();
+      } catch {
+        decodedId = friendId.trim();
+      }
+
+      const res = await fetch(`/api/friends/${encodeURIComponent(decodedId)}`, {
+        cache: 'no-store'
+      });
       const json = await res.json();
 
       if (res.ok && json.success && json.data) {
-        let mergedGifts = json.data.gifts || [];
+        setFriend(json.data);
 
-        // Fusión inteligente con los regalos guardados en el dispositivo para no perder nunca ninguno
+        // Guardado seguro en storage del dispositivo para no fallar en Safari navegación privada
         if (typeof window !== 'undefined') {
           try {
-            const cachedRaw = localStorage.getItem(`santa_friend_${friendId}`);
-            if (cachedRaw) {
-              const cached = JSON.parse(cachedRaw);
-              const cachedGifts = cached.gifts || [];
-              const existingIds = new Set(mergedGifts.map((g: any) => g.id));
-              const missingInServer = cachedGifts.filter((cg: any) => !existingIds.has(cg.id));
-              if (missingInServer.length > 0) {
-                mergedGifts = [...mergedGifts, ...missingInServer];
-              }
+            localStorage.setItem(`santa_friend_${decodedId}`, JSON.stringify(json.data));
+            const savedPin = sessionStorage.getItem(`santa_pin_${decodedId}`);
+            if (savedPin && savedPin === json.data.pin) {
+              setUnlockedPin(savedPin);
             }
-          } catch (e) {
-            console.warn('Cache merge error:', e);
-          }
-        }
-
-        const consolidated = { ...json.data, gifts: mergedGifts };
-        setFriend(consolidated);
-
-        if (typeof window !== 'undefined') {
-          localStorage.setItem(`santa_friend_${friendId}`, JSON.stringify(consolidated));
-        }
-
-        const savedPin = sessionStorage.getItem(`santa_pin_${friendId}`);
-        if (savedPin && savedPin === json.data.pin) {
-          setUnlockedPin(savedPin);
+          } catch {}
         }
         return;
       }
 
-      // Si el servidor devolvió error o 404 (ej. lambda reciclada en Vercel)
-      throw new Error(json?.error || 'No se encontró en el servidor');
+      throw new Error(json?.error || 'No se encontró la carpeta en el servidor');
     } catch (err: unknown) {
-      // Fallback de resiliencia: Buscar en localStorage
+      // Fallback de resiliencia: Buscar en localStorage si la conexión falló
       if (typeof window !== 'undefined') {
         try {
           const cached = localStorage.getItem(`santa_friend_${friendId}`);
@@ -104,14 +93,6 @@ export default function FriendDetailClient({ friendId }: FriendDetailClientProps
             if (savedPin && savedPin === parsed.pin) {
               setUnlockedPin(savedPin);
             }
-
-            // Re-sincronizar silenciosamente con el servidor
-            fetch('/api/friends', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(parsed)
-            }).catch(() => {});
-
             return;
           }
         } catch (e) {
@@ -132,7 +113,9 @@ export default function FriendDetailClient({ friendId }: FriendDetailClientProps
   const handleUnlockPin = (pin: string) => {
     if (friend && pin === friend.pin) {
       setUnlockedPin(pin);
-      sessionStorage.setItem(`santa_pin_${friendId}`, pin);
+      try {
+        sessionStorage.setItem(`santa_pin_${friendId}`, pin);
+      } catch {}
       setIsPinModalOpen(false);
       setIsAddGiftOpen(true);
     } else {
@@ -142,7 +125,9 @@ export default function FriendDetailClient({ friendId }: FriendDetailClientProps
 
   const handleLockOwner = () => {
     setUnlockedPin(null);
-    sessionStorage.removeItem(`santa_pin_${friendId}`);
+    try {
+      sessionStorage.removeItem(`santa_pin_${friendId}`);
+    } catch {}
   };
 
   const handleShare = async () => {
@@ -185,17 +170,29 @@ export default function FriendDetailClient({ friendId }: FriendDetailClientProps
         <Navbar />
         <main className="flex-1 max-w-md mx-auto px-4 py-20 text-center">
           <span className="text-5xl">🎄</span>
-          <h2 className="text-2xl font-black text-slate-800 mt-4">Carpeta no encontrada</h2>
+          <h2 className="text-2xl font-black text-slate-800 mt-4">
+            {error && error !== 'Carpeta no encontrada' ? 'No se pudo cargar la carpeta' : 'Carpeta no encontrada'}
+          </h2>
           <p className="text-xs text-slate-500 mt-2">
-            No encontramos la lista de deseos para este amigo.
+            {error && error !== 'Carpeta no encontrada'
+              ? error
+              : 'No encontramos la lista de deseos para este amigo.'}
           </p>
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 mt-6 px-5 py-2.5 bg-red-600 text-white rounded-xl font-bold text-xs shadow-md hover:bg-red-700 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Volver al inicio
-          </Link>
+          <div className="flex items-center justify-center gap-3 mt-6">
+            <button
+              onClick={() => fetchFriendData()}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-xs shadow-md hover:bg-slate-800 transition-colors"
+            >
+              Reintentar
+            </button>
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-red-600 text-white rounded-xl font-bold text-xs shadow-md hover:bg-red-700 transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Volver al inicio
+            </Link>
+          </div>
         </main>
       </div>
     );
