@@ -171,22 +171,26 @@ export async function createFriend(
 
   // 2. Guardar en Supabase si está activo
   if (isSupabaseConfigured() && supabase) {
-    const { error } = await supabase.from('friends').insert({
-      id: newFriend.id,
-      name: newFriend.name,
-      avatar: newFriend.avatar,
-      pin: newFriend.pin,
-      bio: newFriend.bio,
-      dislikes: newFriend.dislikes,
-      shirt_size: newFriend.shirtSize,
-      shoe_size: newFriend.shoeSize,
-      created_at: newFriend.createdAt
-    });
+    try {
+      const { error } = await supabase.from('friends').insert({
+        id: newFriend.id,
+        name: newFriend.name,
+        avatar: newFriend.avatar,
+        pin: newFriend.pin,
+        bio: newFriend.bio,
+        dislikes: newFriend.dislikes,
+        shirt_size: newFriend.shirtSize,
+        shoe_size: newFriend.shoeSize,
+        created_at: newFriend.createdAt
+      });
 
-    if (error) {
-      throw new Error(error.message);
+      if (!error) {
+        return newFriend;
+      }
+      console.warn('Supabase insert friend warning, fallbacking:', error.message);
+    } catch (err) {
+      console.warn('Supabase exception, fallbacking:', err);
     }
-    return newFriend;
   }
 
   // 3. Guardar en archivo local /tmp
@@ -259,21 +263,25 @@ export async function addGift(
   }
 
   if (isSupabaseConfigured() && supabase) {
-    const { error } = await supabase.from('gifts').insert({
-      id: newGift.id,
-      friend_id: newGift.friendId,
-      title: newGift.title,
-      link: newGift.link,
-      image_url: newGift.imageUrl,
-      price_estimate: newGift.priceEstimate,
-      priority: newGift.priority,
-      notes: newGift.notes,
-      is_purchased: Boolean(newGift.isPurchased),
-      created_at: newGift.createdAt
-    });
+    try {
+      const { error } = await supabase.from('gifts').insert({
+        id: newGift.id,
+        friend_id: newGift.friendId,
+        title: newGift.title,
+        link: newGift.link,
+        image_url: newGift.imageUrl,
+        price_estimate: newGift.priceEstimate,
+        priority: newGift.priority,
+        notes: newGift.notes,
+        is_purchased: Boolean(newGift.isPurchased),
+        created_at: newGift.createdAt
+      });
 
-    if (error) throw new Error(error.message);
-    return newGift;
+      if (!error) return newGift;
+      console.warn('Supabase addGift warning:', error.message);
+    } catch (err) {
+      console.warn('Supabase addGift exception:', err);
+    }
   }
 
   const db = readLocalDb();
@@ -302,22 +310,26 @@ export async function addMultipleGifts(
   }
 
   if (isSupabaseConfigured() && supabase) {
-    const records = newGifts.map((g) => ({
-      id: g.id,
-      friend_id: g.friendId,
-      title: g.title,
-      link: g.link,
-      image_url: g.imageUrl,
-      price_estimate: g.priceEstimate,
-      priority: g.priority,
-      notes: g.notes,
-      is_purchased: Boolean(g.isPurchased),
-      created_at: g.createdAt
-    }));
+    try {
+      const records = newGifts.map((g) => ({
+        id: g.id,
+        friend_id: g.friendId,
+        title: g.title,
+        link: g.link,
+        image_url: g.imageUrl,
+        price_estimate: g.priceEstimate,
+        priority: g.priority,
+        notes: g.notes,
+        is_purchased: Boolean(g.isPurchased),
+        created_at: g.createdAt
+      }));
 
-    const { error } = await supabase.from('gifts').insert(records);
-    if (error) throw new Error(error.message);
-    return newGifts;
+      const { error } = await supabase.from('gifts').insert(records);
+      if (!error) return newGifts;
+      console.warn('Supabase addMultipleGifts warning:', error.message);
+    } catch (err) {
+      console.warn('Supabase addMultipleGifts exception:', err);
+    }
   }
 
   const db = readLocalDb();
