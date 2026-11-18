@@ -529,6 +529,70 @@ export async function toggleGiftPurchased(
   return gift;
 }
 
+export async function updateGift(
+  giftId: string,
+  updates: Partial<Omit<GiftItem, 'id' | 'friendId' | 'createdAt'>>
+): Promise<GiftItem> {
+  // Si la imagen es base64, subirla a Supabase Storage si está activo
+  let finalImageUrl = updates.imageUrl;
+  if (finalImageUrl && finalImageUrl.startsWith('data:image')) {
+    finalImageUrl = await uploadImageToStorage(finalImageUrl, giftId);
+    updates.imageUrl = finalImageUrl;
+  }
+
+  // 1. KV
+  if (isKvConfigured) {
+    const kvData = (await kvGet<DatabaseSchema>('secret_santa_db')) || { friends: [], gifts: [] };
+    const index = kvData.gifts.findIndex((g) => g.id === giftId);
+    if (index === -1) throw new Error('Regalo no encontrado');
+    kvData.gifts[index] = { ...kvData.gifts[index], ...updates };
+    await kvSet('secret_santa_db', kvData);
+    return kvData.gifts[index];
+  }
+
+  // 2. Supabase
+  if (isSupabaseConfigured() && supabase) {
+    const payload: Record<string, unknown> = {};
+    if (updates.title !== undefined) payload.title = updates.title;
+    if (updates.link !== undefined) payload.link = updates.link;
+    if (updates.imageUrl !== undefined) payload.image_url = updates.imageUrl;
+    if (updates.priceEstimate !== undefined) payload.price_estimate = updates.priceEstimate;
+    if (updates.priority !== undefined) payload.priority = updates.priority;
+    if (updates.notes !== undefined) payload.notes = updates.notes;
+    if (updates.isPurchased !== undefined) payload.is_purchased = updates.isPurchased;
+    if (updates.purchasedBy !== undefined) payload.purchased_by = updates.purchasedBy;
+
+    const { error } = await supabase.from('gifts').update(payload).eq('id', giftId);
+    if (error) throw new Error(error.message);
+
+    const { data: updated } = await supabase.from('gifts').select('*').eq('id', giftId).single();
+    if (updated) {
+      return {
+        id: updated.id,
+        friendId: updated.friend_id,
+        title: updated.title,
+        link: updated.link,
+        imageUrl: updated.image_url,
+        priceEstimate: updated.price_estimate,
+        priority: updated.priority,
+        notes: updated.notes,
+        isPurchased: updated.is_purchased,
+        purchasedBy: updated.purchased_by,
+        createdAt: updated.created_at
+      };
+    }
+  }
+
+  // 3. Local
+  const db = readLocalDb();
+  const index = db.gifts.findIndex((g) => g.id === giftId);
+  if (index === -1) throw new Error('Regalo no encontrado');
+
+  db.gifts[index] = { ...db.gifts[index], ...updates };
+  writeLocalDb(db);
+  return db.gifts[index];
+}
+
 export async function deleteFriend(friendId: string): Promise<boolean> {
   // 1. KV
   if (isKvConfigured) {

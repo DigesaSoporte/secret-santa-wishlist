@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getFriendById, deleteGift, toggleGiftPurchased } from '@/lib/storage';
+import { getFriendById, deleteGift, toggleGiftPurchased, updateGift } from '@/lib/storage';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -65,15 +65,39 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
 
     const body = await request.json();
-    const { isPurchased, purchasedBy } = body;
+    const { pin, ...updates } = body;
 
-    const updated = await toggleGiftPurchased(giftId, Boolean(isPurchased), purchasedBy);
+    // Caso 1: Toggle de apartado / reservado (hecho de forma anónima por un amigo)
+    if (updates.isPurchased !== undefined && updates.title === undefined && updates.notes === undefined) {
+      const updated = await toggleGiftPurchased(giftId, Boolean(updates.isPurchased), updates.purchasedBy);
+      return NextResponse.json(
+        { success: true, data: updated },
+        { headers: NO_CACHE_HEADERS }
+      );
+    }
+
+    // Caso 2: Edición completa de datos del regalo (solo el dueño con su PIN)
+    if (!pin || pin.toString().trim() !== friend.pin.trim()) {
+      return NextResponse.json(
+        { success: false, error: 'PIN incorrecto. Solo el dueño de la carpeta puede editar este regalo.' },
+        { status: 403, headers: NO_CACHE_HEADERS }
+      );
+    }
+
+    if (updates.title !== undefined && !updates.title.trim()) {
+      return NextResponse.json(
+        { success: false, error: 'El nombre o título del regalo no puede estar vacío.' },
+        { status: 400, headers: NO_CACHE_HEADERS }
+      );
+    }
+
+    const updated = await updateGift(giftId, updates);
     return NextResponse.json(
       { success: true, data: updated },
       { headers: NO_CACHE_HEADERS }
     );
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Error al actualizar el estado del regalo';
+    const message = error instanceof Error ? error.message : 'Error al actualizar el regalo';
     return NextResponse.json(
       { success: false, error: message },
       { status: 500, headers: NO_CACHE_HEADERS }

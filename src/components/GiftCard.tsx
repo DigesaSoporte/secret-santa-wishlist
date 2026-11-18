@@ -10,10 +10,11 @@ import {
   DollarSign,
   Gift,
   Clock,
-  Share2
+  Share2,
+  Edit3
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { isGiftNewlyAdded } from '@/lib/gift-utils';
+import { isGiftNewlyAdded, isGiftSeen } from '@/lib/gift-utils';
 
 interface GiftCardProps {
   gift: GiftItem;
@@ -23,6 +24,7 @@ interface GiftCardProps {
   onDeleted: () => void;
   onToggledPurchased: () => void;
   onPreviewImage: (url: string, title: string) => void;
+  onEdit?: (gift: GiftItem) => void;
 }
 
 export default function GiftCard({
@@ -32,7 +34,8 @@ export default function GiftCard({
   pin,
   onDeleted,
   onToggledPurchased,
-  onPreviewImage
+  onPreviewImage,
+  onEdit
 }: GiftCardProps) {
   const [loading, setLoading] = useState(false);
   const [now] = useState(() => Date.now());
@@ -45,8 +48,8 @@ export default function GiftCard({
 
   const currentPriority = priorityLabels[gift.priority] || priorityLabels.high;
 
-  // Comprobar si el regalo es nuevo (creado DESPUÉS de la actualización)
-  const isNew = isGiftNewlyAdded(gift.createdAt, now);
+  // Comprobar si el regalo es nuevo y no ha sido visto aún
+  const isNew = isGiftNewlyAdded(gift.createdAt, now) && !isGiftSeen(gift.id, gift.createdAt);
 
   const formatRelativeTime = (isoString?: string) => {
     if (!isoString) return null;
@@ -255,16 +258,29 @@ export default function GiftCard({
               )}
             </button>
 
-            {/* Eliminar (solo visible para el dueño con PIN) */}
+            {/* Acciones del dueño (Editar y Eliminar) */}
             {isOwner && (
-              <button
-                onClick={handleDelete}
-                disabled={loading}
-                className="p-2.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all active:scale-90"
-                title="Eliminar este regalo de tu lista"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-1">
+                {onEdit && (
+                  <button
+                    onClick={() => onEdit(gift)}
+                    disabled={loading}
+                    className="p-2.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all active:scale-90"
+                    title="Editar detalles de este regalo"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                  </button>
+                )}
+
+                <button
+                  onClick={handleDelete}
+                  disabled={loading}
+                  className="p-2.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all active:scale-90"
+                  title="Eliminar este regalo de tu lista"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
             )}
           </div>
         </div>

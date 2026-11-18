@@ -6,10 +6,11 @@ import Navbar from '@/components/Navbar';
 import SnowEffect from '@/components/SnowEffect';
 import GiftCard from '@/components/GiftCard';
 import AddGiftModal from '@/components/AddGiftModal';
+import EditGiftModal from '@/components/EditGiftModal';
 import EditProfileModal from '@/components/EditProfileModal';
 import PinVerifyModal from '@/components/PinVerifyModal';
 import ImagePreviewModal from '@/components/ImagePreviewModal';
-import { FriendWithGifts, FriendProfile } from '@/types';
+import { FriendWithGifts, FriendProfile, GiftItem } from '@/types';
 import {
   ArrowLeft,
   Plus,
@@ -26,7 +27,7 @@ import {
   Search,
   CheckCircle2
 } from 'lucide-react';
-import { isGiftNewlyAdded } from '@/lib/gift-utils';
+import { isGiftNewlyAdded, isGiftSeen } from '@/lib/gift-utils';
 
 interface FriendDetailClientProps {
   friendId: string;
@@ -45,6 +46,7 @@ export default function FriendDetailClient({ friendId }: FriendDetailClientProps
   // Modales
   const [isAddGiftOpen, setIsAddGiftOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [editingGift, setEditingGift] = useState<GiftItem | null>(null);
   const [previewImage, setPreviewImage] = useState<{ url: string; title: string } | null>(null);
 
   // Filtros y Búsqueda dentro de la Wishlist
@@ -54,6 +56,7 @@ export default function FriendDetailClient({ friendId }: FriendDetailClientProps
 
   // Copiado de enlace & Toasts
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [, setSeenTick] = useState(0);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -123,6 +126,9 @@ export default function FriendDetailClient({ friendId }: FriendDetailClientProps
 
   useEffect(() => {
     fetchFriendData();
+    const handleSeenUpdated = () => setSeenTick((t) => t + 1);
+    window.addEventListener('santa_gifts_seen_updated', handleSeenUpdated);
+    return () => window.removeEventListener('santa_gifts_seen_updated', handleSeenUpdated);
   }, [friendId]);
 
   const handleUnlockPin = (pin: string) => {
@@ -216,8 +222,8 @@ export default function FriendDetailClient({ friendId }: FriendDetailClientProps
   const purchasedCount = allGifts.filter((g) => g.isPurchased).length;
   const availableCount = totalGiftsCount - purchasedCount;
 
-  // Regalos nuevos (creados DESPUÉS de la actualización)
-  const newGiftsCount = allGifts.filter((g) => isGiftNewlyAdded(g.createdAt, now)).length;
+  // Regalos nuevos (creados DESPUÉS de la actualización que no han sido vistos)
+  const newGiftsCount = allGifts.filter((g) => isGiftNewlyAdded(g.createdAt, now) && !isGiftSeen(g.id, g.createdAt)).length;
 
   // Filtrado y Ordenamiento
   const filteredGifts = useMemo(() => {
@@ -225,7 +231,7 @@ export default function FriendDetailClient({ friendId }: FriendDetailClientProps
 
     // Filtro por Tab
     if (filterTab === 'new') {
-      result = result.filter((g) => isGiftNewlyAdded(g.createdAt, now));
+      result = result.filter((g) => isGiftNewlyAdded(g.createdAt, now) && !isGiftSeen(g.id, g.createdAt));
     } else if (filterTab === 'high') {
       result = result.filter((g) => g.priority === 'high');
     } else if (filterTab === 'available') {
@@ -717,6 +723,7 @@ export default function FriendDetailClient({ friendId }: FriendDetailClientProps
                   onDeleted={fetchFriendData}
                   onToggledPurchased={fetchFriendData}
                   onPreviewImage={(url, title) => setPreviewImage({ url, title })}
+                  onEdit={(g) => setEditingGift(g)}
                 />
               ))}
             </div>
@@ -795,6 +802,21 @@ export default function FriendDetailClient({ friendId }: FriendDetailClientProps
           friendId={friend.id}
           pin={unlockedPin}
           onGiftAdded={fetchFriendData}
+        />
+      )}
+
+      {/* Modal Editar Regalo Existente */}
+      {editingGift && isOwner && unlockedPin && (
+        <EditGiftModal
+          isOpen={Boolean(editingGift)}
+          onClose={() => setEditingGift(null)}
+          gift={editingGift}
+          friendId={friend.id}
+          pin={unlockedPin}
+          onGiftUpdated={() => {
+            fetchFriendData();
+            showToast('¡Regalo actualizado con éxito!');
+          }}
         />
       )}
 

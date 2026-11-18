@@ -5,7 +5,12 @@ import Link from 'next/link';
 import { Gift, Users, Bell } from 'lucide-react';
 import RecentGiftsModal from '@/components/RecentGiftsModal';
 import { RecentGiftNotification } from '@/types';
-import { isGiftNewlyAdded } from '@/lib/gift-utils';
+import {
+  isGiftNewlyAdded,
+  isGiftSeen,
+  getSeenGiftIds,
+  getLastSeenTimestamp
+} from '@/lib/gift-utils';
 
 interface NavbarProps {
   onOpenCreate?: () => void;
@@ -17,16 +22,16 @@ export default function Navbar({ onOpenCreate }: NavbarProps) {
 
   const checkRecentGifts = async () => {
     try {
-      const res = await fetch('/api/gifts/recent?limit=20', { cache: 'no-store' });
+      const res = await fetch('/api/gifts/recent?limit=30', { cache: 'no-store' });
       const json = await res.json();
       if (res.ok && json.success && Array.isArray(json.data)) {
         if (typeof window !== 'undefined') {
-          const lastSeen = localStorage.getItem('santa_last_seen_gift_time');
-          const lastSeenTime = lastSeen ? new Date(lastSeen).getTime() : 0;
+          const seenIds = getSeenGiftIds();
+          const lastSeenTime = getLastSeenTimestamp();
 
-          // Solo cuenta regalos creados DESPUÉS de la actualización
+          // Cuenta regalos creados DESPUÉS de la actualización que aún NO han sido vistos
           const unread = json.data.filter((g: RecentGiftNotification) => {
-            return isGiftNewlyAdded(g.createdAt) && new Date(g.createdAt).getTime() > lastSeenTime;
+            return isGiftNewlyAdded(g.createdAt) && !isGiftSeen(g.id, g.createdAt, seenIds, lastSeenTime);
           }).length;
 
           setNewCount(unread);
@@ -37,6 +42,9 @@ export default function Navbar({ onOpenCreate }: NavbarProps) {
 
   useEffect(() => {
     checkRecentGifts();
+    const handleSeenUpdated = () => checkRecentGifts();
+    window.addEventListener('santa_gifts_seen_updated', handleSeenUpdated);
+    return () => window.removeEventListener('santa_gifts_seen_updated', handleSeenUpdated);
   }, []);
 
   const handleMarkAllSeen = () => {
@@ -64,10 +72,7 @@ export default function Navbar({ onOpenCreate }: NavbarProps) {
           <div className="flex items-center gap-2 sm:gap-3">
             {/* Botón de Alertas y Novedades */}
             <button
-              onClick={() => {
-                setIsRecentOpen(true);
-                setNewCount(0);
-              }}
+              onClick={() => setIsRecentOpen(true)}
               className="relative flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-emerald-200 hover:text-white rounded-xl hover:bg-emerald-900/60 border border-emerald-800/40 transition-all active:scale-95"
               title="Ver novedades y regalos recientes"
             >

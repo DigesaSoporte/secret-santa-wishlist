@@ -9,7 +9,7 @@ import RecentGiftsModal from '@/components/RecentGiftsModal';
 import { FriendWithGifts } from '@/types';
 import { Search, Gift, Users, ArrowRight, Bell } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { isGiftNewlyAdded } from '@/lib/gift-utils';
+import { isGiftNewlyAdded, isGiftSeen } from '@/lib/gift-utils';
 
 export default function HomePage() {
   const router = useRouter();
@@ -69,6 +69,12 @@ export default function HomePage() {
 
   useEffect(() => {
     fetchFriends();
+    const handleSeenUpdated = () => {
+      // Re-evaluar estado de vistos
+      setFriends((prev) => [...prev]);
+    };
+    window.addEventListener('santa_gifts_seen_updated', handleSeenUpdated);
+    return () => window.removeEventListener('santa_gifts_seen_updated', handleSeenUpdated);
   }, []);
 
   const filteredFriends = friends.filter((f) =>
@@ -77,11 +83,11 @@ export default function HomePage() {
 
   const totalGifts = friends.reduce((acc, f) => acc + (f.gifts?.length || 0), 0);
 
-  // Cantidad de regalos creados después de esta actualización
+  // Cantidad de regalos creados después de esta actualización que aún no han sido vistos
   const newGiftsTotal = friends.reduce((acc, f) => {
     return (
       acc +
-      (f.gifts || []).filter((g) => isGiftNewlyAdded(g.createdAt, now)).length
+      (f.gifts || []).filter((g) => isGiftNewlyAdded(g.createdAt, now) && !isGiftSeen(g.id, g.createdAt)).length
     );
   }, 0);
 

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { FriendWithGifts } from '@/types';
 import { Gift, ChevronRight, CheckCircle2 } from 'lucide-react';
-import { isGiftNewlyAdded } from '@/lib/gift-utils';
+import { isGiftNewlyAdded, isGiftSeen } from '@/lib/gift-utils';
 
 interface FriendCardProps {
   friend: FriendWithGifts;
@@ -15,8 +15,8 @@ export default function FriendCard({ friend }: FriendCardProps) {
   const giftCount = friend.gifts.length;
   const purchasedCount = friend.gifts.filter((g) => g.isPurchased).length;
 
-  // Comprobar si tiene algún regalo añadido DESPUÉS de la actualización
-  const hasNewGifts = friend.gifts.some((g) => isGiftNewlyAdded(g.createdAt, now));
+  // Comprobar si tiene algún regalo añadido DESPUÉS de la actualización que no ha sido visto
+  const hasNewGifts = friend.gifts.some((g) => isGiftNewlyAdded(g.createdAt, now) && !isGiftSeen(g.id, g.createdAt));
 
   return (
     <Link
