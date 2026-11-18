@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Lock, X, KeyRound } from 'lucide-react';
+import { X, KeyRound } from 'lucide-react';
 
 interface PinVerifyModalProps {
   isOpen: boolean;

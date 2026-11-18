@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { FriendProfile, GiftItem, FriendWithGifts, ActivityLog } from '@/types';
+import { FriendProfile, GiftItem, FriendWithGifts, ActivityLog, RecentGiftNotification } from '@/types';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { INITIAL_FRIENDS, INITIAL_GIFTS } from './seed-data';
 
@@ -632,4 +632,23 @@ export async function getActivityLogs(): Promise<ActivityLog[]> {
 
   const db = readLocalDb();
   return db.logs || [];
+}
+
+export async function getRecentGifts(limit = 20): Promise<RecentGiftNotification[]> {
+  const friends = await getAllFriends();
+  const all: RecentGiftNotification[] = [];
+
+  for (const friend of friends) {
+    for (const gift of friend.gifts || []) {
+      all.push({
+        ...gift,
+        friendName: friend.name,
+        friendAvatar: friend.avatar || '🎅'
+      });
+    }
+  }
+
+  // Ordenar por fecha más reciente
+  all.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+  return all.slice(0, limit);
 }

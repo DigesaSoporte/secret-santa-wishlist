@@ -30,6 +30,11 @@ export interface FriendWithGifts extends FriendProfile {
   gifts: GiftItem[];
 }
 
+export interface RecentGiftNotification extends GiftItem {
+  friendName: string;
+  friendAvatar: string;
+}
+
 export interface ActivityLog {
   id: string;
   action: string;

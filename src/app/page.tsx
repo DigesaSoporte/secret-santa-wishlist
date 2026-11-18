@@ -5,8 +5,9 @@ import Navbar from '@/components/Navbar';
 import SnowEffect from '@/components/SnowEffect';
 import FriendCard from '@/components/FriendCard';
 import CreateFriendModal from '@/components/CreateFriendModal';
+import RecentGiftsModal from '@/components/RecentGiftsModal';
 import { FriendWithGifts } from '@/types';
-import { Search, Gift, Users, ArrowRight } from 'lucide-react';
+import { Search, Gift, Users, ArrowRight, Sparkles, Bell } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function HomePage() {
@@ -14,7 +15,9 @@ export default function HomePage() {
   const [friends, setFriends] = useState<FriendWithGifts[]>([]);
   const [search, setSearch] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isRecentOpen, setIsRecentOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [now] = useState(() => Date.now());
 
   const fetchFriends = async () => {
     try {
@@ -73,6 +76,18 @@ export default function HomePage() {
 
   const totalGifts = friends.reduce((acc, f) => acc + (f.gifts?.length || 0), 0);
 
+  // Cantidad de regalos creados en las últimas 48 horas
+  const newGiftsTotal = friends.reduce((acc, f) => {
+    return (
+      acc +
+      (f.gifts || []).filter((g) => {
+        if (!g.createdAt) return false;
+        const diffHours = (now - new Date(g.createdAt).getTime()) / (1000 * 60 * 60);
+        return diffHours < 48;
+      }).length
+    );
+  }, 0);
+
   return (
     <div className="min-h-screen flex flex-col bg-[#fcfbf9] relative">
       <SnowEffect />
@@ -103,6 +118,16 @@ export default function HomePage() {
                 <span>+ Crear mi carpeta</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
+
+              {newGiftsTotal > 0 && (
+                <button
+                  onClick={() => setIsRecentOpen(true)}
+                  className="px-4 py-3 bg-emerald-900/70 hover:bg-emerald-900 text-emerald-200 hover:text-white font-bold rounded-xl border border-emerald-700/60 flex items-center gap-2 transition-all active:scale-95 text-xs sm:text-sm"
+                >
+                  <Bell className="w-4 h-4 text-amber-400" />
+                  <span>Ver {newGiftsTotal} novedades</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -116,8 +141,41 @@ export default function HomePage() {
               <Gift className="w-4 h-4 text-rose-400" />
               <span><strong>{totalGifts}</strong> ideas en wishlists</span>
             </div>
+            {newGiftsTotal > 0 && (
+              <div className="hidden sm:flex items-center gap-1.5 text-amber-300">
+                <Sparkles className="w-4 h-4" />
+                <span><strong>{newGiftsTotal}</strong> regalos nuevos</span>
+              </div>
+            )}
           </div>
         </section>
+
+        {/* ALERTA DE REGALOS NUEVOS GLOBALES */}
+        {newGiftsTotal > 0 && (
+          <div className="mt-6 bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center text-base shadow-xs shrink-0">
+                ✨
+              </div>
+              <div className="text-xs">
+                <p className="font-bold text-amber-950">
+                  ¡Hay {newGiftsTotal} {newGiftsTotal === 1 ? 'regalo nuevo añadido' : 'regalos nuevos añadidos'} recientemente!
+                </p>
+                <p className="text-amber-800">
+                  Descubre los últimos deseos que tus amigos han publicado para el intercambio.
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setIsRecentOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all active:scale-95 self-start sm:self-auto shrink-0"
+            >
+              <Bell className="w-3.5 h-3.5" />
+              <span>Ver novedades</span>
+            </button>
+          </div>
+        )}
 
         {/* Buscador y Directorio */}
         <section className="mt-8">
@@ -191,11 +249,11 @@ export default function HomePage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 text-xs text-slate-600">
             <div className="p-3 bg-slate-50 rounded-2xl">
               <span className="font-bold text-slate-900 block text-sm mb-1">1. Crea tu carpeta</span>
-              Pon tu nombre y un PIN de 4 dígitos para proteger tu lista.
+              Pon tu nombre y un PIN de 4 dígitos para proteger y poder editar tu lista cuando quieras.
             </div>
             <div className="p-3 bg-slate-50 rounded-2xl">
               <span className="font-bold text-slate-900 block text-sm mb-1">2. Sube tus capturas</span>
-              Sube de 1 a 40 capturas de fotos o enlaces de lo que quieres recibir.
+              Sube de 1 a 40 capturas de fotos, tallas, gustos o enlaces de lo que quieres recibir.
             </div>
             <div className="p-3 bg-slate-50 rounded-2xl">
               <span className="font-bold text-slate-900 block text-sm mb-1">3. Tu amigo secreto compra</span>
@@ -217,6 +275,12 @@ export default function HomePage() {
           fetchFriends();
           router.push(`/amigo/${newId}`);
         }}
+      />
+
+      {/* Modal para ver novedades recientes */}
+      <RecentGiftsModal
+        isOpen={isRecentOpen}
+        onClose={() => setIsRecentOpen(false)}
       />
     </div>
   );

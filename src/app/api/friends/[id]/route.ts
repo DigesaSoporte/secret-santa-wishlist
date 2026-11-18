@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getFriendById, updateFriend } from '@/lib/storage';
+import { getFriendById, updateFriend, logActivity } from '@/lib/storage';
+import { getClientIp, getClientUserAgent } from '@/lib/ip-utils';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -54,7 +55,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
 
     const body = await request.json();
-    const { pin, ...updates } = body;
+    const { pin, newPin, ...updates } = body;
 
     if (!pin || pin.toString().trim() !== friend.pin.trim()) {
       return NextResponse.json(
@@ -63,7 +64,28 @@ export async function PATCH(request: Request, context: RouteContext) {
       );
     }
 
+    if (newPin) {
+      if (newPin.toString().trim().length < 4) {
+        return NextResponse.json(
+          { success: false, error: 'El nuevo PIN debe tener al menos 4 dígitos.' },
+          { status: 400, headers: NO_CACHE_HEADERS }
+        );
+      }
+      updates.pin = newPin.toString().trim();
+    }
+
     const updated = await updateFriend(friend.id, updates);
+
+    const ip = getClientIp(request);
+    const userAgent = getClientUserAgent(request);
+    logActivity({
+      action: 'EDITAR_PERFIL',
+      targetId: friend.id,
+      targetName: updated.name,
+      ip,
+      userAgent
+    }).catch(() => {});
+
     return NextResponse.json(
       { success: true, data: updated },
       { headers: NO_CACHE_HEADERS }
