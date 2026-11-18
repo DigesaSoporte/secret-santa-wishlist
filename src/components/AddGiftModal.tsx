@@ -528,7 +528,7 @@ export default function AddGiftModal({
                   className="w-full px-3 py-3 rounded-xl border border-slate-300 focus:border-red-500 outline-none text-base sm:text-xs"
                 >
                   <option value="high">⭐ Me encantaría</option>
-                  <option value="medium">✨ Buena opción</option>
+                  <option value="medium">Buena opción</option>
                   <option value="low">💡 Detalle accesible</option>
                 </select>
               </div>

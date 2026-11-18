@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { FriendWithGifts } from '@/types';
-import { Gift, ChevronRight, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Gift, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { isGiftNewlyAdded } from '@/lib/gift-utils';
 
 interface FriendCardProps {
   friend: FriendWithGifts;
@@ -14,12 +15,8 @@ export default function FriendCard({ friend }: FriendCardProps) {
   const giftCount = friend.gifts.length;
   const purchasedCount = friend.gifts.filter((g) => g.isPurchased).length;
 
-  // Comprobar si tiene algún regalo añadido recientemente (< 48 hrs)
-  const hasNewGifts = friend.gifts.some((g) => {
-    if (!g.createdAt) return false;
-    const diffHours = (now - new Date(g.createdAt).getTime()) / (1000 * 60 * 60);
-    return diffHours < 48;
-  });
+  // Comprobar si tiene algún regalo añadido DESPUÉS de la actualización
+  const hasNewGifts = friend.gifts.some((g) => isGiftNewlyAdded(g.createdAt, now));
 
   return (
     <Link
@@ -47,12 +44,11 @@ export default function FriendCard({ friend }: FriendCardProps) {
           </div>
         </div>
 
-        {/* Badge de regalos nuevos */}
+        {/* Badge de regalos nuevos (solo si se agregaron después de la actualización) */}
         {hasNewGifts && (
           <div className="mt-3">
-            <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-800 border border-amber-500/30 px-2 py-0.5 rounded-full">
-              <Sparkles className="w-2.5 h-2.5 text-amber-600" />
-              ¡Tiene deseos nuevos!
+            <span className="inline-flex items-center text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-800 border border-amber-500/30 px-2 py-0.5 rounded-full">
+              Novedad agregada
             </span>
           </div>
         )}

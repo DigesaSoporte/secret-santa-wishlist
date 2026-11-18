@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Gift, Users, Bell, Sparkles } from 'lucide-react';
+import { Gift, Users, Bell } from 'lucide-react';
 import RecentGiftsModal from '@/components/RecentGiftsModal';
 import { RecentGiftNotification } from '@/types';
+import { isGiftNewlyAdded } from '@/lib/gift-utils';
 
 interface NavbarProps {
   onOpenCreate?: () => void;
@@ -21,20 +22,14 @@ export default function Navbar({ onOpenCreate }: NavbarProps) {
       if (res.ok && json.success && Array.isArray(json.data)) {
         if (typeof window !== 'undefined') {
           const lastSeen = localStorage.getItem('santa_last_seen_gift_time');
-          if (lastSeen) {
-            const lastSeenTime = new Date(lastSeen).getTime();
-            const unread = json.data.filter(
-              (g: RecentGiftNotification) => new Date(g.createdAt).getTime() > lastSeenTime
-            ).length;
-            setNewCount(unread);
-          } else {
-            // Si nunca ha entrado, mostrar regalos de las últimas 48 horas
-            const threshold = Date.now() - 48 * 60 * 60 * 1000;
-            const unread = json.data.filter(
-              (g: RecentGiftNotification) => new Date(g.createdAt).getTime() > threshold
-            ).length;
-            setNewCount(unread);
-          }
+          const lastSeenTime = lastSeen ? new Date(lastSeen).getTime() : 0;
+
+          // Solo cuenta regalos creados DESPUÉS de la actualización
+          const unread = json.data.filter((g: RecentGiftNotification) => {
+            return isGiftNewlyAdded(g.createdAt) && new Date(g.createdAt).getTime() > lastSeenTime;
+          }).length;
+
+          setNewCount(unread);
         }
       }
     } catch {}
@@ -57,9 +52,8 @@ export default function Navbar({ onOpenCreate }: NavbarProps) {
               <Gift className="w-5 h-5 text-white" />
             </div>
             <div>
-              <span className="font-bold text-base sm:text-lg tracking-tight text-white flex items-center gap-1.5">
+              <span className="font-bold text-base sm:text-lg tracking-tight text-white">
                 Amigo Secreto
-                <Sparkles className="w-3.5 h-3.5 text-amber-400 opacity-90 hidden sm:inline" />
               </span>
               <p className="text-[11px] text-emerald-300/80 font-medium -mt-1">
                 Carpetas & Wishlists

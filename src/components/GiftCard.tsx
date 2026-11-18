@@ -8,12 +8,12 @@ import {
   CheckCircle2,
   ZoomIn,
   DollarSign,
-  Sparkles,
   Gift,
   Clock,
   Share2
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { isGiftNewlyAdded } from '@/lib/gift-utils';
 
 interface GiftCardProps {
   gift: GiftItem;
@@ -39,18 +39,14 @@ export default function GiftCard({
 
   const priorityLabels = {
     high: { text: '⭐ Me encantaría', bg: 'bg-red-50 text-red-700 border-red-200' },
-    medium: { text: '✨ Buena opción', bg: 'bg-amber-50 text-amber-800 border-amber-200' },
+    medium: { text: 'Buena opción', bg: 'bg-amber-50 text-amber-800 border-amber-200' },
     low: { text: '💡 Accesible', bg: 'bg-slate-100 text-slate-700 border-slate-200' }
   };
 
   const currentPriority = priorityLabels[gift.priority] || priorityLabels.high;
 
-  // Comprobar si el regalo es nuevo (< 48 horas)
-  const isNew = (() => {
-    if (!gift.createdAt) return false;
-    const diffHours = (now - new Date(gift.createdAt).getTime()) / (1000 * 60 * 60);
-    return diffHours < 48;
-  })();
+  // Comprobar si el regalo es nuevo (creado DESPUÉS de la actualización)
+  const isNew = isGiftNewlyAdded(gift.createdAt, now);
 
   const formatRelativeTime = (isoString?: string) => {
     if (!isoString) return null;
@@ -171,9 +167,8 @@ export default function GiftCard({
           </span>
 
           {isNew && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider bg-amber-500 text-white px-2 py-0.5 rounded-full shadow-md animate-pulse">
-              <Sparkles className="w-2.5 h-2.5" />
-              ¡Nuevo!
+            <span className="inline-flex items-center text-[10px] font-black uppercase tracking-wider bg-amber-500 text-white px-2 py-0.5 rounded-full shadow-md">
+              Nuevo
             </span>
           )}
         </div>

@@ -20,11 +20,13 @@ import {
   ThumbsDown,
   Shirt,
   Upload,
-  Sparkles,
+  Heart,
+  Bell,
   Edit3,
   Search,
   CheckCircle2
 } from 'lucide-react';
+import { isGiftNewlyAdded } from '@/lib/gift-utils';
 
 interface FriendDetailClientProps {
   friendId: string;
@@ -214,12 +216,8 @@ export default function FriendDetailClient({ friendId }: FriendDetailClientProps
   const purchasedCount = allGifts.filter((g) => g.isPurchased).length;
   const availableCount = totalGiftsCount - purchasedCount;
 
-  // Regalos nuevos (< 48 hrs)
-  const newGiftsCount = allGifts.filter((g) => {
-    if (!g.createdAt) return false;
-    const diffHours = (now - new Date(g.createdAt).getTime()) / (1000 * 60 * 60);
-    return diffHours < 48;
-  }).length;
+  // Regalos nuevos (creados DESPUÉS de la actualización)
+  const newGiftsCount = allGifts.filter((g) => isGiftNewlyAdded(g.createdAt, now)).length;
 
   // Filtrado y Ordenamiento
   const filteredGifts = useMemo(() => {
@@ -227,11 +225,7 @@ export default function FriendDetailClient({ friendId }: FriendDetailClientProps
 
     // Filtro por Tab
     if (filterTab === 'new') {
-      result = result.filter((g) => {
-        if (!g.createdAt) return false;
-        const diffHours = (now - new Date(g.createdAt).getTime()) / (1000 * 60 * 60);
-        return diffHours < 48;
-      });
+      result = result.filter((g) => isGiftNewlyAdded(g.createdAt, now));
     } else if (filterTab === 'high') {
       result = result.filter((g) => g.priority === 'high');
     } else if (filterTab === 'available') {
@@ -316,7 +310,7 @@ export default function FriendDetailClient({ friendId }: FriendDetailClientProps
       {/* Toast Feedback flotante */}
       {toastMessage && (
         <div className="fixed top-20 right-4 sm:right-6 z-50 bg-slate-900 text-white text-xs font-bold px-4 py-2.5 rounded-2xl shadow-xl border border-slate-700 animate-in fade-in slide-in-from-top-2 duration-200 flex items-center gap-2">
-          <span>✨</span>
+          <span>✓</span>
           <span>{toastMessage}</span>
         </div>
       )}
@@ -393,7 +387,7 @@ export default function FriendDetailClient({ friendId }: FriendDetailClientProps
                   </span>
 
                   <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200/70 px-2.5 py-1 rounded-lg">
-                    <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                     <strong>{availableCount}</strong> {availableCount === 1 ? 'disponible' : 'disponibles'}
                   </span>
 
@@ -462,7 +456,7 @@ export default function FriendDetailClient({ friendId }: FriendDetailClientProps
             {/* Gustos */}
             <div className="bg-slate-50/80 p-3.5 rounded-2xl border border-slate-200/60">
               <span className="font-bold text-slate-800 block mb-1 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                <Heart className="w-3.5 h-3.5 text-rose-500" />
                 Gustos o Pasatiempos:
               </span>
               <p className="text-slate-600 leading-relaxed">
@@ -516,7 +510,7 @@ export default function FriendDetailClient({ friendId }: FriendDetailClientProps
           <div className="mt-6 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3 animate-in fade-in duration-200">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center text-sm shadow-xs shrink-0">
-                ✨
+                🔔
               </div>
               <div className="text-xs">
                 <p className="font-bold text-amber-950">
@@ -593,7 +587,7 @@ export default function FriendDetailClient({ friendId }: FriendDetailClientProps
                           : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200'
                       }`}
                     >
-                      <Sparkles className="w-3 h-3" />
+                      <Bell className="w-3 h-3" />
                       Nuevos ({newGiftsCount})
                     </button>
                   )}

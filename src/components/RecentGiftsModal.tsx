@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { X, Bell, Sparkles, ExternalLink, CheckCircle2, DollarSign, Clock, ArrowRight } from 'lucide-react';
+import { X, Bell, ExternalLink, CheckCircle2, DollarSign, Clock, ArrowRight } from 'lucide-react';
 import { RecentGiftNotification } from '@/types';
+import { isGiftNewlyAdded } from '@/lib/gift-utils';
 
 interface RecentGiftsModalProps {
   isOpen: boolean;
@@ -79,7 +80,7 @@ export default function RecentGiftsModal({
 
   const priorityLabels = {
     high: { text: '⭐ Me encantaría', bg: 'bg-red-50 text-red-700 border-red-200' },
-    medium: { text: '✨ Buena opción', bg: 'bg-amber-50 text-amber-800 border-amber-200' },
+    medium: { text: 'Buena opción', bg: 'bg-amber-50 text-amber-800 border-amber-200' },
     low: { text: '💡 Detalle accesible', bg: 'bg-slate-100 text-slate-700 border-slate-200' }
   };
 
@@ -94,7 +95,7 @@ export default function RecentGiftsModal({
             </div>
             <div>
               <h2 className="text-base sm:text-lg font-bold flex items-center gap-2">
-                Novedades y Regalos Nuevos
+                Novedades y Regalos
                 <span className="text-[11px] font-semibold bg-red-600 text-white px-2 py-0.5 rounded-full">
                   {gifts.length}
                 </span>
@@ -147,11 +148,7 @@ export default function RecentGiftsModal({
           ) : (
             gifts.map((item) => {
               const priorityInfo = priorityLabels[item.priority] || priorityLabels.medium;
-              const isRecent = (() => {
-                if (!item.createdAt) return false;
-                const hours = (Date.now() - new Date(item.createdAt).getTime()) / (1000 * 60 * 60);
-                return hours < 48;
-              })();
+              const isRecent = isGiftNewlyAdded(item.createdAt);
 
               return (
                 <div key={item.id} className="pt-4 first:pt-0 flex gap-3.5 items-start group">
@@ -258,7 +255,7 @@ export default function RecentGiftsModal({
         {/* Pie */}
         <div className="p-3 bg-slate-50 border-t border-slate-100 text-center flex items-center justify-between px-5 text-xs text-slate-500">
           <span className="flex items-center gap-1">
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+            <Clock className="w-3.5 h-3.5 text-amber-500" />
             Actualizado en tiempo real
           </span>
           <button

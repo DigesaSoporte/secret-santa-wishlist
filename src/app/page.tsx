@@ -7,8 +7,9 @@ import FriendCard from '@/components/FriendCard';
 import CreateFriendModal from '@/components/CreateFriendModal';
 import RecentGiftsModal from '@/components/RecentGiftsModal';
 import { FriendWithGifts } from '@/types';
-import { Search, Gift, Users, ArrowRight, Sparkles, Bell } from 'lucide-react';
+import { Search, Gift, Users, ArrowRight, Bell } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { isGiftNewlyAdded } from '@/lib/gift-utils';
 
 export default function HomePage() {
   const router = useRouter();
@@ -76,15 +77,11 @@ export default function HomePage() {
 
   const totalGifts = friends.reduce((acc, f) => acc + (f.gifts?.length || 0), 0);
 
-  // Cantidad de regalos creados en las últimas 48 horas
+  // Cantidad de regalos creados después de esta actualización
   const newGiftsTotal = friends.reduce((acc, f) => {
     return (
       acc +
-      (f.gifts || []).filter((g) => {
-        if (!g.createdAt) return false;
-        const diffHours = (now - new Date(g.createdAt).getTime()) / (1000 * 60 * 60);
-        return diffHours < 48;
-      }).length
+      (f.gifts || []).filter((g) => isGiftNewlyAdded(g.createdAt, now)).length
     );
   }, 0);
 
@@ -143,7 +140,7 @@ export default function HomePage() {
             </div>
             {newGiftsTotal > 0 && (
               <div className="hidden sm:flex items-center gap-1.5 text-amber-300">
-                <Sparkles className="w-4 h-4" />
+                <Bell className="w-4 h-4" />
                 <span><strong>{newGiftsTotal}</strong> regalos nuevos</span>
               </div>
             )}
@@ -155,7 +152,7 @@ export default function HomePage() {
           <div className="mt-6 bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center text-base shadow-xs shrink-0">
-                ✨
+                🔔
               </div>
               <div className="text-xs">
                 <p className="font-bold text-amber-950">

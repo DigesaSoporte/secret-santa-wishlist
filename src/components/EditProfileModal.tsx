@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import confetti from 'canvas-confetti';
-import { X, User, Lock, Sparkles, Shirt, ThumbsDown, KeyRound, Check } from 'lucide-react';
+import { X, User, Lock, Heart, Shirt, ThumbsDown, KeyRound, Check } from 'lucide-react';
 import { FriendProfile } from '@/types';
 
 interface EditProfileModalProps {
@@ -221,7 +221,7 @@ export default function EditProfileModal({
           {/* Gustos y Pasatiempos */}
           <div>
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1 flex items-center gap-1">
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+              <Heart className="w-3.5 h-3.5 text-rose-500" />
               <span>Tus gustos o pasatiempos</span>
             </label>
             <textarea
