@@ -53,9 +53,31 @@ export default function FriendDetailClient({ friendId }: FriendDetailClientProps
       const json = await res.json();
 
       if (res.ok && json.success && json.data) {
-        setFriend(json.data);
+        let mergedGifts = json.data.gifts || [];
+
+        // Fusión inteligente con los regalos guardados en el dispositivo para no perder nunca ninguno
         if (typeof window !== 'undefined') {
-          localStorage.setItem(`santa_friend_${friendId}`, JSON.stringify(json.data));
+          try {
+            const cachedRaw = localStorage.getItem(`santa_friend_${friendId}`);
+            if (cachedRaw) {
+              const cached = JSON.parse(cachedRaw);
+              const cachedGifts = cached.gifts || [];
+              const existingIds = new Set(mergedGifts.map((g: any) => g.id));
+              const missingInServer = cachedGifts.filter((cg: any) => !existingIds.has(cg.id));
+              if (missingInServer.length > 0) {
+                mergedGifts = [...mergedGifts, ...missingInServer];
+              }
+            }
+          } catch (e) {
+            console.warn('Cache merge error:', e);
+          }
+        }
+
+        const consolidated = { ...json.data, gifts: mergedGifts };
+        setFriend(consolidated);
+
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(`santa_friend_${friendId}`, JSON.stringify(consolidated));
         }
 
         const savedPin = sessionStorage.getItem(`santa_pin_${friendId}`);

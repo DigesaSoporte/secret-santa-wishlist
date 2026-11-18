@@ -45,16 +45,3 @@ ON public.gifts FOR ALL
 USING (true) 
 WITH CHECK (true);
 
--- 4. Datos iniciales de prueba (Opcional)
-INSERT INTO public.friends (id, name, avatar, pin, bio, dislikes, shirt_size, shoe_size)
-VALUES 
-  ('kenny', 'Kenny', '🎅', '1234', '¡Hola! Me encanta la tecnología, el buen café y los videojuegos.', 'No me gustan los calcetines aburridos.', 'M', '41'),
-  ('valeria', 'Valeria', '🦌', '1234', 'Fanática de los libros de fantasía y tazas de café.', 'Alérgica a las nueces.', 'S', '37')
-ON CONFLICT (id) DO NOTHING;
-
-INSERT INTO public.gifts (id, friend_id, title, link, image_url, price_estimate, priority, notes)
-VALUES
-  ('gift-seed-1', 'kenny', 'Audífonos Bluetooth In-Ear con Cancelación de Ruido', 'https://amazon.com', 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=600&auto=format&fit=crop&q=80', '$30 - $45 USD', 'high', 'En color negro o azul'),
-  ('gift-seed-2', 'valeria', 'Taza Navideña de Cerámica', 'https://amazon.com', 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=600&auto=format&fit=crop&q=80', '$10 - $15 USD', 'high', 'Para café caliente en invierno')
-ON CONFLICT (id) DO NOTHING;
-
