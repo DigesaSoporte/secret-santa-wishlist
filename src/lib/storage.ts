@@ -202,6 +202,43 @@ export async function addGift(
   return newGift;
 }
 
+export async function addMultipleGifts(
+  friendId: string,
+  giftsData: Array<Omit<GiftItem, 'id' | 'friendId' | 'createdAt'>>
+): Promise<GiftItem[]> {
+  const timestamp = Date.now();
+  const newGifts: GiftItem[] = giftsData.map((giftData, index) => ({
+    ...giftData,
+    id: `gift-${timestamp}-${index}-${Math.random().toString(36).substring(2, 7)}`,
+    friendId,
+    createdAt: new Date().toISOString()
+  }));
+
+  if (isSupabaseConfigured() && supabase) {
+    const records = newGifts.map((g) => ({
+      id: g.id,
+      friend_id: g.friendId,
+      title: g.title,
+      link: g.link,
+      image_url: g.imageUrl,
+      price_estimate: g.priceEstimate,
+      priority: g.priority,
+      notes: g.notes,
+      is_purchased: Boolean(g.isPurchased),
+      created_at: g.createdAt
+    }));
+
+    const { error } = await supabase.from('gifts').insert(records);
+    if (error) throw new Error(error.message);
+    return newGifts;
+  }
+
+  const db = readLocalDb();
+  db.gifts.unshift(...newGifts);
+  writeLocalDb(db);
+  return newGifts;
+}
+
 export async function deleteGift(giftId: string): Promise<boolean> {
   if (isSupabaseConfigured() && supabase) {
     const { error } = await supabase.from('gifts').delete().eq('id', giftId);

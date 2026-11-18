@@ -13,8 +13,16 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Secret Santa | Carpetas de Deseos del Amigo Secreto",
-  description: "Sube fotos, links y notas de lo que te gustaría recibir para que tu amigo secreto no falle.",
+  title: "Amigo Secreto | Carpetas de Deseos",
+  description: "Sube capturas, fotos y links de tus posibles regalos de Amigo Secreto.",
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/favicon.svg", type: "image/svg+xml" }
+    ],
+    shortcut: "/icon.svg",
+    apple: "/icon.svg"
+  }
 };
 
 export default function RootLayout({
@@ -27,7 +35,9 @@ export default function RootLayout({
       lang="es"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col font-sans text-slate-800 bg-[#fcfbf9]">
+        {children}
+      </body>
     </html>
   );
 }

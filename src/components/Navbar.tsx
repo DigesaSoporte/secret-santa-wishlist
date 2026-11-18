@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Gift, Sparkles, Users } from 'lucide-react';
+import { Gift, Users } from 'lucide-react';
 
 interface NavbarProps {
   onOpenCreate?: () => void;
@@ -9,18 +9,18 @@ interface NavbarProps {
 
 export default function Navbar({ onOpenCreate }: NavbarProps) {
   return (
-    <header className="sticky top-0 z-30 bg-emerald-950/90 backdrop-blur-md border-b border-emerald-800/50 text-white shadow-lg">
+    <header className="sticky top-0 z-30 bg-[#0c2017]/95 backdrop-blur-md border-b border-emerald-900/40 text-white shadow-md">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-3 group">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-600 to-rose-700 flex items-center justify-center shadow-md shadow-red-900/30 group-hover:scale-105 transition-transform">
-            <Gift className="w-5 h-5 text-amber-200" />
+          <div className="w-10 h-10 rounded-xl bg-red-600 flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
+            <Gift className="w-5 h-5 text-white" />
           </div>
           <div>
-            <span className="font-bold text-lg tracking-tight flex items-center gap-1.5 text-amber-100">
-              Secret Santa <Sparkles className="w-4 h-4 text-amber-400" />
+            <span className="font-bold text-base sm:text-lg tracking-tight text-white">
+              Amigo Secreto
             </span>
-            <p className="text-xs text-emerald-300 font-medium -mt-1">
-              Carpetas de Deseos
+            <p className="text-[11px] text-emerald-300/80 font-medium -mt-1">
+              Carpetas & Wishlists
             </p>
           </div>
         </Link>
@@ -28,16 +28,16 @@ export default function Navbar({ onOpenCreate }: NavbarProps) {
         <div className="flex items-center gap-3">
           <Link
             href="/"
-            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-emerald-200 hover:text-white rounded-lg hover:bg-emerald-900/50 transition-colors"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-200 hover:text-white rounded-lg hover:bg-emerald-900/50 transition-colors"
           >
             <Users className="w-4 h-4" />
-            Amigos
+            Ver Amigos
           </Link>
 
           {onOpenCreate && (
             <button
               onClick={onOpenCreate}
-              className="flex items-center gap-2 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white text-sm font-semibold px-4 py-2 rounded-xl shadow-md shadow-red-900/40 hover:shadow-red-800/50 active:scale-95 transition-all"
+              className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-md transition-all active:scale-95"
             >
               <span>+ Crear mi carpeta</span>
             </button>
@@ -47,4 +47,3 @@ export default function Navbar({ onOpenCreate }: NavbarProps) {
     </header>
   );
 }
-

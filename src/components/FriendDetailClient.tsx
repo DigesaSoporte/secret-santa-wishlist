@@ -15,10 +15,10 @@ import {
   Share2,
   Lock,
   Unlock,
-  Sparkles,
   Gift,
   ThumbsDown,
-  Shirt
+  Shirt,
+  Upload
 } from 'lucide-react';
 
 interface FriendDetailClientProps {
@@ -55,7 +55,6 @@ export default function FriendDetailClient({ friendId }: FriendDetailClientProps
       }
       setFriend(json.data);
 
-      // Comprobar si hay PIN guardado en sessionStorage para esta carpeta
       const savedPin = sessionStorage.getItem(`santa_pin_${friendId}`);
       if (savedPin && savedPin === json.data.pin) {
         setUnlockedPin(savedPin);
@@ -97,30 +96,30 @@ export default function FriendDetailClient({ friendId }: FriendDetailClientProps
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#fdfbf7] flex flex-col items-center justify-center">
+      <div className="min-h-screen bg-[#fcfbf9] flex flex-col items-center justify-center">
         <SnowEffect />
-        <div className="w-12 h-12 border-4 border-red-600 border-t-transparent rounded-full animate-spin mb-4" />
-        <p className="text-sm font-semibold text-slate-600">Abriendo la carpeta de regalos...</p>
+        <div className="w-10 h-10 border-3 border-red-600 border-t-transparent rounded-full animate-spin mb-3" />
+        <p className="text-xs font-semibold text-slate-600">Cargando carpeta...</p>
       </div>
     );
   }
 
   if (error || !friend) {
     return (
-      <div className="min-h-screen bg-[#fdfbf7] flex flex-col">
+      <div className="min-h-screen bg-[#fcfbf9] flex flex-col">
         <Navbar />
         <main className="flex-1 max-w-md mx-auto px-4 py-20 text-center">
-          <span className="text-6xl">🎄</span>
+          <span className="text-5xl">🎄</span>
           <h2 className="text-2xl font-black text-slate-800 mt-4">Carpeta no encontrada</h2>
           <p className="text-xs text-slate-500 mt-2">
-            No encontramos la lista de deseos para este amigo o fue eliminada.
+            No encontramos la lista de deseos para este amigo.
           </p>
           <Link
             href="/"
             className="inline-flex items-center gap-2 mt-6 px-5 py-2.5 bg-red-600 text-white rounded-xl font-bold text-xs shadow-md hover:bg-red-700 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            Volver a la lista de amigos
+            Volver al inicio
           </Link>
         </main>
       </div>
@@ -135,206 +134,181 @@ export default function FriendDetailClient({ friendId }: FriendDetailClientProps
   });
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#fdfbf7] relative">
+    <div className="min-h-screen flex flex-col bg-[#fcfbf9] relative">
       <SnowEffect />
       <Navbar />
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-8 relative z-10">
-        {/* Barra superior de navegación */}
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 relative z-10">
+        {/* Barra superior */}
         <div className="flex items-center justify-between gap-4 mb-6">
           <Link
             href="/"
-            className="inline-flex items-center gap-2 text-xs font-semibold text-emerald-800 hover:text-emerald-950 bg-white/80 hover:bg-white px-3.5 py-2 rounded-xl border border-emerald-900/10 shadow-sm transition-all"
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 hover:text-slate-950 bg-white px-3.5 py-2 rounded-xl border border-slate-200 shadow-sm transition-all"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Ver todas las carpetas</span>
+            <span>Ver todos los amigos</span>
           </Link>
 
           <button
             onClick={handleShare}
-            className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white/80 hover:bg-white px-3.5 py-2 rounded-xl border border-slate-200 shadow-sm transition-all"
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 hover:text-slate-950 bg-white px-3.5 py-2 rounded-xl border border-slate-200 shadow-sm transition-all"
           >
-            <Share2 className="w-3.5 h-3.5 text-red-600" />
-            <span>{copiedLink ? '¡Enlace copiado!' : 'Compartir link'}</span>
+            <Share2 className="w-4 h-4 text-red-600" />
+            <span>{copiedLink ? '¡Link copiado!' : 'Compartir mi link'}</span>
           </button>
         </div>
 
-        {/* Tarjeta Perfil del Amigo */}
-        <section className="bg-white/90 rounded-3xl p-6 sm:p-8 border border-emerald-950/10 shadow-lg relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-red-100/50 via-amber-100/30 to-transparent rounded-bl-full pointer-events-none" />
-
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 relative z-10">
-            <div className="flex items-start sm:items-center gap-5">
-              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-gradient-to-br from-emerald-100 via-amber-50 to-red-100 border-2 border-white shadow-md flex items-center justify-center text-4xl sm:text-5xl shrink-0">
+        {/* Tarjeta Perfil */}
+        <section className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+            <div className="flex items-start sm:items-center gap-4">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center text-4xl shrink-0">
                 {friend.avatar || '🎅'}
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200/60">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
                     Carpeta de Deseos
                   </span>
                   {isOwner && (
-                    <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200/60 flex items-center gap-1">
-                      <Unlock className="w-3 h-3" /> Modo Dueño
+                    <span className="text-[11px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md flex items-center gap-1">
+                      <Unlock className="w-3 h-3" /> Modo Edición Activo
                     </span>
                   )}
                 </div>
 
-                <h1 className="text-2xl sm:text-4xl font-black text-slate-900 mt-1">
+                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 mt-1">
                   Lista de {friend.name}
                 </h1>
 
-                <p className="text-xs text-slate-500 mt-1 flex items-center gap-1.5">
+                <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
                   <Gift className="w-3.5 h-3.5 text-red-500" />
                   <span>
-                    <strong>{friend.gifts.length}</strong> {friend.gifts.length === 1 ? 'idea de regalo' : 'ideas de regalo'} registradas
+                    <strong>{friend.gifts.length}</strong> {friend.gifts.length === 1 ? 'idea' : 'ideas'} en su wishlist
                   </span>
                 </p>
               </div>
             </div>
 
-            {/* Botones de acción del Dueño */}
-            <div className="flex flex-wrap sm:flex-col items-stretch gap-2.5">
+            {/* Acciones del dueño */}
+            <div className="flex items-center gap-2">
               {isOwner ? (
                 <>
                   <button
                     onClick={() => setIsAddGiftOpen(true)}
-                    className="flex-1 sm:flex-none px-5 py-2.5 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white text-xs font-bold rounded-xl shadow-md shadow-red-900/30 flex items-center justify-center gap-2 transition-all active:scale-95"
+                    className="flex-1 sm:flex-none px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow-md flex items-center justify-center gap-2 transition-all active:scale-95"
                   >
-                    <Plus className="w-4 h-4" />
-                    <span>+ Agregar nuevo regalo</span>
+                    <Upload className="w-4 h-4" />
+                    <span>+ Subir fotos o regalos</span>
                   </button>
                   <button
                     onClick={handleLockOwner}
-                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors"
+                    className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-semibold rounded-xl"
+                    title="Cerrar modo edición"
                   >
-                    <Lock className="w-3.5 h-3.5" />
-                    <span>Bloquear edición</span>
+                    <Lock className="w-4 h-4" />
                   </button>
                 </>
               ) : (
                 <button
                   onClick={() => setIsPinModalOpen(true)}
-                  className="px-5 py-2.5 bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold rounded-xl shadow-md shadow-emerald-950/20 flex items-center justify-center gap-2 transition-all active:scale-95"
+                  className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-sm flex items-center gap-2 transition-all active:scale-95"
                 >
                   <Lock className="w-3.5 h-3.5 text-amber-300" />
-                  <span>¿Eres {friend.name}? Editar mi lista</span>
+                  <span>¿Eres {friend.name}? Editar lista</span>
                 </button>
               )}
             </div>
           </div>
 
-          {/* Información complementaria: Gustos, Tallas y Disgustos */}
-          <div className="mt-6 pt-6 border-t border-slate-100 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-            {/* Bio / Gustos */}
-            <div className="bg-amber-50/70 p-3.5 rounded-2xl border border-amber-200/50">
-              <span className="font-bold text-amber-900 flex items-center gap-1.5 mb-1">
-                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                Gustos y Pasatiempos:
-              </span>
-              <p className="text-slate-700 leading-relaxed">
-                {friend.bio || 'No especificó gustos generales.'}
-              </p>
-            </div>
+          {/* Detalles opcionales (tallas, gustos) */}
+          {(friend.bio || friend.dislikes || friend.shirtSize || friend.shoeSize) && (
+            <div className="mt-5 pt-4 border-t border-slate-100 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+              {friend.bio && (
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/60">
+                  <span className="font-bold text-slate-800 block mb-0.5">Gustos o pasatiempos:</span>
+                  <p className="text-slate-600">{friend.bio}</p>
+                </div>
+              )}
 
-            {/* Tallas */}
-            <div className="bg-emerald-50/70 p-3.5 rounded-2xl border border-emerald-200/50">
-              <span className="font-bold text-emerald-900 flex items-center gap-1.5 mb-1.5">
-                <Shirt className="w-3.5 h-3.5 text-emerald-600" />
-                Tallas de {friend.name}:
-              </span>
-              <div className="space-y-1 text-slate-700">
-                <p>
-                  <strong>Ropa:</strong> {friend.shirtSize || 'No especificada'}
-                </p>
-                <p>
-                  <strong>Calzado:</strong> {friend.shoeSize || 'No especificada'}
-                </p>
-              </div>
-            </div>
+              {(friend.shirtSize || friend.shoeSize) && (
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/60">
+                  <span className="font-bold text-slate-800 block mb-0.5 flex items-center gap-1">
+                    <Shirt className="w-3.5 h-3.5" /> Tallas:
+                  </span>
+                  <p className="text-slate-600">
+                    {friend.shirtSize && <span>Ropa: <strong>{friend.shirtSize}</strong> </span>}
+                    {friend.shoeSize && <span>Calzado: <strong>{friend.shoeSize}</strong></span>}
+                  </p>
+                </div>
+              )}
 
-            {/* Qué NO regalarle */}
-            <div className="bg-rose-50/70 p-3.5 rounded-2xl border border-rose-200/50">
-              <span className="font-bold text-rose-900 flex items-center gap-1.5 mb-1">
-                <ThumbsDown className="w-3.5 h-3.5 text-rose-600" />
-                Lo que NO le gusta / Alergias:
-              </span>
-              <p className="text-slate-700 leading-relaxed">
-                {friend.dislikes || '¡Le gusta casi todo!'}
-              </p>
+              {friend.dislikes && (
+                <div className="bg-rose-50/70 p-3 rounded-xl border border-rose-200/60">
+                  <span className="font-bold text-rose-900 block mb-0.5 flex items-center gap-1">
+                    <ThumbsDown className="w-3.5 h-3.5 text-rose-600" /> NO regalar / Alergias:
+                  </span>
+                  <p className="text-slate-700">{friend.dislikes}</p>
+                </div>
+              )}
             </div>
-          </div>
+          )}
         </section>
 
-        {/* Sección de Wishlist */}
+        {/* Wishlist */}
         <section className="mt-8">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div className="flex items-center justify-between gap-4 mb-5">
             <div>
-              <h2 className="text-xl sm:text-2xl font-black text-slate-800 flex items-center gap-2">
-                Deseos y Posibles Regalos 🎁
+              <h2 className="text-xl font-bold text-slate-900">
+                Regalos deseados ({friend.gifts.length})
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Fotos, capturas y links directos para que su amigo secreto acierte al 100%.
+              <p className="text-xs text-slate-500">
+                Fotos y capturas de lo que le gustaría recibir.
               </p>
             </div>
 
-            {/* Filtros de Prioridad */}
-            <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 text-xs font-semibold">
+            {friend.gifts.length > 0 && (
               <button
-                onClick={() => setFilterPriority('all')}
-                className={`px-3 py-1.5 rounded-lg transition-colors ${
-                  filterPriority === 'all'
-                    ? 'bg-slate-900 text-white'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
+                onClick={() => {
+                  if (isOwner) {
+                    setIsAddGiftOpen(true);
+                  } else {
+                    setIsPinModalOpen(true);
+                  }
+                }}
+                className="text-xs font-bold text-red-600 hover:text-red-700 hover:underline flex items-center gap-1"
               >
-                Todos ({friend.gifts.length})
+                <Plus className="w-4 h-4" /> Agregar más
               </button>
-              <button
-                onClick={() => setFilterPriority('high')}
-                className={`px-3 py-1.5 rounded-lg transition-colors ${
-                  filterPriority === 'high'
-                    ? 'bg-red-600 text-white'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                ⭐ Máximo Deseo
-              </button>
-            </div>
+            )}
           </div>
 
           {/* Grid de Regalos */}
           {displayedGifts.length === 0 ? (
-            <div className="bg-white/80 rounded-3xl p-10 text-center border border-slate-200/80 shadow-sm max-w-md mx-auto">
+            <div className="bg-white rounded-3xl p-10 text-center border border-slate-200 shadow-sm max-w-md mx-auto">
               <span className="text-5xl">🎁</span>
-              <h3 className="text-lg font-bold text-slate-800 mt-3">
-                {friend.gifts.length === 0
-                  ? `${friend.name} aún no ha agregado regalos`
-                  : 'No hay regalos en este filtro'}
+              <h3 className="text-base font-bold text-slate-900 mt-3">
+                {friend.name} aún no ha subido regalos
               </h3>
               <p className="text-xs text-slate-500 mt-1">
-                {friend.gifts.length === 0
-                  ? 'Si eres tú, desbloquea tu carpeta con tu PIN para agregar tus fotos y links.'
-                  : 'Cambia el filtro para ver los demás regalos.'}
+                Puedes subir fotos, capturas de pantalla de tiendas o enlaces.
               </p>
 
-              {friend.gifts.length === 0 && (
-                <button
-                  onClick={() => {
-                    if (isOwner) {
-                      setIsAddGiftOpen(true);
-                    } else {
-                      setIsPinModalOpen(true);
-                    }
-                  }}
-                  className="mt-5 px-5 py-2.5 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 text-white font-bold text-xs rounded-xl shadow-md transition-all"
-                >
-                  + Agregar primer regalo
-                </button>
-              )}
+              <button
+                onClick={() => {
+                  if (isOwner) {
+                    setIsAddGiftOpen(true);
+                  } else {
+                    setIsPinModalOpen(true);
+                  }
+                }}
+                className="mt-5 px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-md transition-all"
+              >
+                + Subir fotos o capturas de lo que quiero
+              </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {displayedGifts.map((gift) => (
                 <GiftCard
                   key={gift.id}
@@ -352,7 +326,7 @@ export default function FriendDetailClient({ friendId }: FriendDetailClientProps
         </section>
       </main>
 
-      {/* Modal para verificar PIN */}
+      {/* Modal PIN */}
       <PinVerifyModal
         isOpen={isPinModalOpen}
         onClose={() => setIsPinModalOpen(false)}
@@ -360,7 +334,7 @@ export default function FriendDetailClient({ friendId }: FriendDetailClientProps
         friendName={friend.name}
       />
 
-      {/* Modal para agregar regalo */}
+      {/* Modal Agregar Regalos (Soporta 1 o 40 fotos en lote) */}
       {isOwner && unlockedPin && (
         <AddGiftModal
           isOpen={isAddGiftOpen}
@@ -371,7 +345,7 @@ export default function FriendDetailClient({ friendId }: FriendDetailClientProps
         />
       )}
 
-      {/* Modal para ampliar fotos/capturas */}
+      {/* Modal Ampliar Fotos */}
       <ImagePreviewModal
         imageUrl={previewImage?.url || null}
         title={previewImage?.title || ''}
@@ -380,4 +354,3 @@ export default function FriendDetailClient({ friendId }: FriendDetailClientProps
     </div>
   );
 }
-
