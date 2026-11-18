@@ -21,11 +21,47 @@ export default function HomePage() {
       setLoading(true);
       const res = await fetch('/api/friends');
       const json = await res.json();
-      if (json.success) {
-        setFriends(json.data);
+      if (json.success && Array.isArray(json.data)) {
+        if (json.data.length > 0) {
+          setFriends(json.data);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('santa_all_friends', JSON.stringify(json.data));
+          }
+          return;
+        }
       }
+
+      // Si el servidor devolvió vacío, verificar si hay respaldo en localStorage
+      if (typeof window !== 'undefined') {
+        const cachedRaw = localStorage.getItem('santa_all_friends');
+        if (cachedRaw) {
+          const cached = JSON.parse(cachedRaw);
+          if (Array.isArray(cached) && cached.length > 0) {
+            setFriends(cached);
+            // Sincronizar en servidor
+            cached.forEach((f: any) => {
+              fetch('/api/friends', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(f)
+              }).catch(() => {});
+            });
+            return;
+          }
+        }
+      }
+
+      setFriends([]);
     } catch (error) {
       console.error('Error fetching friends:', error);
+      if (typeof window !== 'undefined') {
+        const cachedRaw = localStorage.getItem('santa_all_friends');
+        if (cachedRaw) {
+          try {
+            setFriends(JSON.parse(cachedRaw));
+          } catch {}
+        }
+      }
     } finally {
       setLoading(false);
     }

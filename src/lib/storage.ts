@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 import { FriendProfile, GiftItem, FriendWithGifts } from '@/types';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { INITIAL_FRIENDS, INITIAL_GIFTS } from './seed-data';
@@ -9,9 +10,51 @@ interface DatabaseSchema {
   gifts: GiftItem[];
 }
 
-const DB_PATH = path.join(process.cwd(), 'data', 'db.json');
+// Ruta escribible en Vercel Serverless (/tmp) o local (data/db.json)
+const isVercel = Boolean(process.env.VERCEL);
+const DB_PATH = isVercel
+  ? path.join(os.tmpdir(), 'secret_santa_db.json')
+  : path.join(process.cwd(), 'data', 'db.json');
 
-// Memoria volátil para serverless fallback si fs no puede escribir en Vercel
+// Vercel KV / Upstash Redis support
+const kvUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+const kvToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+const isKvConfigured = Boolean(kvUrl && kvToken);
+
+async function kvGet<T>(key: string): Promise<T | null> {
+  if (!isKvConfigured) return null;
+  try {
+    const res = await fetch(`${kvUrl}/get/${key}`, {
+      headers: { Authorization: `Bearer ${kvToken}` },
+      cache: 'no-store'
+    });
+    const json = await res.json();
+    if (json.result) {
+      return typeof json.result === 'string' ? JSON.parse(json.result) : json.result;
+    }
+  } catch (err) {
+    console.warn('Error reading from KV:', err);
+  }
+  return null;
+}
+
+async function kvSet(key: string, value: unknown): Promise<void> {
+  if (!isKvConfigured) return;
+  try {
+    await fetch(`${kvUrl}/set/${key}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${kvToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(value)
+    });
+  } catch (err) {
+    console.warn('Error writing to KV:', err);
+  }
+}
+
+// Memoria volátil
 let memoryDb: DatabaseSchema = {
   friends: [...INITIAL_FRIENDS],
   gifts: [...INITIAL_GIFTS]
@@ -24,7 +67,7 @@ function readLocalDb(): DatabaseSchema {
       return JSON.parse(data);
     }
   } catch (error) {
-    console.warn('Could not read from local db.json, using in-memory state', error);
+    console.warn('Could not read local DB, using memoryDb', error);
   }
   return memoryDb;
 }
@@ -38,11 +81,23 @@ function writeLocalDb(data: DatabaseSchema): void {
     }
     fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2), 'utf-8');
   } catch (error) {
-    console.warn('Could not persist to local db.json (likely running in read-only serverless)', error);
+    console.warn('Could not write to local DB', error);
   }
 }
 
 export async function getAllFriends(): Promise<FriendWithGifts[]> {
+  // 1. Si KV (Vercel KV / Upstash) está activo
+  if (isKvConfigured) {
+    const kvData = await kvGet<DatabaseSchema>('secret_santa_db');
+    if (kvData && Array.isArray(kvData.friends)) {
+      return kvData.friends.map((f) => ({
+        ...f,
+        gifts: (kvData.gifts || []).filter((g) => g.friendId === f.id)
+      }));
+    }
+  }
+
+  // 2. Si Supabase está configurado
   if (isSupabaseConfigured() && supabase) {
     const { data: friendsData, error: friendsError } = await supabase
       .from('friends')
@@ -80,7 +135,7 @@ export async function getAllFriends(): Promise<FriendWithGifts[]> {
     }
   }
 
-  // Fallback local
+  // 3. Fallback en archivo (/tmp o data/db.json) y memoria
   const db = readLocalDb();
   return db.friends.map((f) => ({
     ...f,
@@ -102,6 +157,19 @@ export async function createFriend(
     createdAt: new Date().toISOString()
   };
 
+  // 1. Guardar en KV si está activo
+  if (isKvConfigured) {
+    const kvData = (await kvGet<DatabaseSchema>('secret_santa_db')) || { friends: [], gifts: [] };
+    const exists = kvData.friends.some((f) => f.id.toLowerCase() === newFriend.id.toLowerCase());
+    if (exists) {
+      throw new Error('Ya existe una carpeta con este nombre.');
+    }
+    kvData.friends.unshift(newFriend);
+    await kvSet('secret_santa_db', kvData);
+    return newFriend;
+  }
+
+  // 2. Guardar en Supabase si está activo
   if (isSupabaseConfigured() && supabase) {
     const { error } = await supabase.from('friends').insert({
       id: newFriend.id,
@@ -116,16 +184,16 @@ export async function createFriend(
     });
 
     if (error) {
-      console.error('Supabase createFriend error:', error);
       throw new Error(error.message);
     }
     return newFriend;
   }
 
+  // 3. Guardar en archivo local /tmp
   const db = readLocalDb();
   const exists = db.friends.some((f) => f.id.toLowerCase() === newFriend.id.toLowerCase());
   if (exists) {
-    throw new Error('Ya existe una carpeta con este identificador.');
+    throw new Error('Ya existe una carpeta con este nombre.');
   }
 
   db.friends.unshift(newFriend);
@@ -137,6 +205,15 @@ export async function updateFriend(
   id: string,
   updates: Partial<Omit<FriendProfile, 'id' | 'createdAt'>>
 ): Promise<FriendProfile> {
+  if (isKvConfigured) {
+    const kvData = (await kvGet<DatabaseSchema>('secret_santa_db')) || { friends: [], gifts: [] };
+    const index = kvData.friends.findIndex((f) => f.id.toLowerCase() === id.toLowerCase());
+    if (index === -1) throw new Error('Amigo no encontrado');
+    kvData.friends[index] = { ...kvData.friends[index], ...updates };
+    await kvSet('secret_santa_db', kvData);
+    return kvData.friends[index];
+  }
+
   if (isSupabaseConfigured() && supabase) {
     const payload: Record<string, unknown> = {};
     if (updates.name !== undefined) payload.name = updates.name;
@@ -147,11 +224,7 @@ export async function updateFriend(
     if (updates.shirtSize !== undefined) payload.shirt_size = updates.shirtSize;
     if (updates.shoeSize !== undefined) payload.shoe_size = updates.shoeSize;
 
-    const { error } = await supabase
-      .from('friends')
-      .update(payload)
-      .eq('id', id);
-
+    const { error } = await supabase.from('friends').update(payload).eq('id', id);
     if (error) throw new Error(error.message);
     const updated = await getFriendById(id);
     if (!updated) throw new Error('Amigo no encontrado');
@@ -177,6 +250,13 @@ export async function addGift(
     friendId,
     createdAt: new Date().toISOString()
   };
+
+  if (isKvConfigured) {
+    const kvData = (await kvGet<DatabaseSchema>('secret_santa_db')) || { friends: [], gifts: [] };
+    kvData.gifts.unshift(newGift);
+    await kvSet('secret_santa_db', kvData);
+    return newGift;
+  }
 
   if (isSupabaseConfigured() && supabase) {
     const { error } = await supabase.from('gifts').insert({
@@ -214,6 +294,13 @@ export async function addMultipleGifts(
     createdAt: new Date().toISOString()
   }));
 
+  if (isKvConfigured) {
+    const kvData = (await kvGet<DatabaseSchema>('secret_santa_db')) || { friends: [], gifts: [] };
+    kvData.gifts.unshift(...newGifts);
+    await kvSet('secret_santa_db', kvData);
+    return newGifts;
+  }
+
   if (isSupabaseConfigured() && supabase) {
     const records = newGifts.map((g) => ({
       id: g.id,
@@ -240,6 +327,13 @@ export async function addMultipleGifts(
 }
 
 export async function deleteGift(giftId: string): Promise<boolean> {
+  if (isKvConfigured) {
+    const kvData = (await kvGet<DatabaseSchema>('secret_santa_db')) || { friends: [], gifts: [] };
+    kvData.gifts = kvData.gifts.filter((g) => g.id !== giftId);
+    await kvSet('secret_santa_db', kvData);
+    return true;
+  }
+
   if (isSupabaseConfigured() && supabase) {
     const { error } = await supabase.from('gifts').delete().eq('id', giftId);
     if (error) throw new Error(error.message);
@@ -257,6 +351,16 @@ export async function toggleGiftPurchased(
   isPurchased: boolean,
   purchasedBy?: string
 ): Promise<GiftItem> {
+  if (isKvConfigured) {
+    const kvData = (await kvGet<DatabaseSchema>('secret_santa_db')) || { friends: [], gifts: [] };
+    const gift = kvData.gifts.find((g) => g.id === giftId);
+    if (!gift) throw new Error('Regalo no encontrado');
+    gift.isPurchased = isPurchased;
+    gift.purchasedBy = purchasedBy;
+    await kvSet('secret_santa_db', kvData);
+    return gift;
+  }
+
   if (isSupabaseConfigured() && supabase) {
     const { error } = await supabase
       .from('gifts')
@@ -278,4 +382,3 @@ export async function toggleGiftPurchased(
   writeLocalDb(db);
   return gift;
 }
-

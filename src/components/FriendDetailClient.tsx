@@ -48,18 +48,55 @@ export default function FriendDetailClient({ friendId }: FriendDetailClientProps
     if (!friendId) return;
     try {
       setLoading(true);
+      setError(null);
       const res = await fetch(`/api/friends/${friendId}`);
       const json = await res.json();
-      if (!res.ok || !json.success) {
-        throw new Error(json.error || 'No se encontró la carpeta');
-      }
-      setFriend(json.data);
 
-      const savedPin = sessionStorage.getItem(`santa_pin_${friendId}`);
-      if (savedPin && savedPin === json.data.pin) {
-        setUnlockedPin(savedPin);
+      if (res.ok && json.success && json.data) {
+        setFriend(json.data);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(`santa_friend_${friendId}`, JSON.stringify(json.data));
+        }
+
+        const savedPin = sessionStorage.getItem(`santa_pin_${friendId}`);
+        if (savedPin && savedPin === json.data.pin) {
+          setUnlockedPin(savedPin);
+        }
+        return;
       }
+
+      // Si el servidor devolvió error o 404 (ej. lambda reciclada en Vercel)
+      throw new Error(json?.error || 'No se encontró en el servidor');
     } catch (err: unknown) {
+      // Fallback de resiliencia: Buscar en localStorage
+      if (typeof window !== 'undefined') {
+        try {
+          const cached = localStorage.getItem(`santa_friend_${friendId}`);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (!parsed.gifts) parsed.gifts = [];
+            setFriend(parsed);
+            setError(null);
+
+            const savedPin = sessionStorage.getItem(`santa_pin_${friendId}`);
+            if (savedPin && savedPin === parsed.pin) {
+              setUnlockedPin(savedPin);
+            }
+
+            // Re-sincronizar silenciosamente con el servidor
+            fetch('/api/friends', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(parsed)
+            }).catch(() => {});
+
+            return;
+          }
+        } catch (e) {
+          console.warn('LocalStorage fallback failed:', e);
+        }
+      }
+
       setError(err instanceof Error ? err.message : 'Error al cargar');
     } finally {
       setLoading(false);
